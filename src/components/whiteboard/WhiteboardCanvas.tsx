@@ -462,23 +462,6 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
     return () => canvas.off('mouse:down', onMouseDown as any)
   }, [tool, setTool, numberLineStart, numberLineEnd])
 
-  // Select mode: clicking empty canvas area → return to pen
-  useEffect(() => {
-    const canvas = fabricRef.current
-    if (!canvas || tool !== 'select') return
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function onMouseDown(e: any) {
-      if (!e.target) {
-        setTool('pen')
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    canvas.on('mouse:down', onMouseDown as any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return () => canvas.off('mouse:down', onMouseDown as any)
-  }, [tool, setTool])
 
   // Place-symbol mode: click on canvas to load & place the symbol image, then switch to select
   useEffect(() => {
