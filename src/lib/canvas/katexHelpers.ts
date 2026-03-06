@@ -30,24 +30,16 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
   // 웹폰트 로드 대기
   await document.fonts.ready
 
-  // html2canvas v1.x는 oklch()/lab() 같은 현대 CSS 색상 함수를 지원하지 않음.
-  // Tailwind v4가 body/html에 oklch() 색상을 사용하므로, 캡처 전에 임시로 안전한 색상으로 재정의.
-  const tempStyle = document.createElement('style')
-  tempStyle.textContent = 'html,body{background-color:#ffffff!important;color:#000000!important;}'
-  document.head.appendChild(tempStyle)
-
+  // html-to-image: DOM을 SVG foreignObject로 직렬화 후 브라우저가 직접 렌더링.
+  // html2canvas와 달리 oklch()/color-mix() 등 현대 CSS를 브라우저가 처리하므로 색상 파싱 에러 없음.
   let dataURL = ''
   try {
-    const html2canvas = (await import('html2canvas')).default
-    const capturedCanvas = await html2canvas(container, {
+    const { toPng } = await import('html-to-image')
+    dataURL = await toPng(container, {
       backgroundColor: '#ffffff',
-      scale: 2,
-      logging: false,
-      useCORS: true,
+      pixelRatio: 2,
     })
-    dataURL = capturedCanvas.toDataURL('image/png')
   } finally {
-    document.head.removeChild(tempStyle)
     document.body.removeChild(container)
   }
   return dataURL
