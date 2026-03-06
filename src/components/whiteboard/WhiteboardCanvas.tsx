@@ -154,6 +154,9 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         brush.color = getHexColor()
         brush.width = strokeWidth
         canvas!.freeDrawingBrush = brush
+        // 펜 커서 — 기울어진 펜 모양 SVG, 핫스팟 = 펜 끝(좌하)
+        const penSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M2 20L3.5 13L15 1.5L20.5 7L9 18.5Z' fill='%23334155' stroke='white' stroke-width='1.2' stroke-linejoin='round'/><path d='M2 20L6 18L4 16Z' fill='%23f97316' stroke='white' stroke-width='0.6'/><line x1='7' y1='15' x2='17' y2='5' stroke='white' stroke-width='0.8' opacity='0.35'/></svg>`
+        canvas!.freeDrawingCursor = `url("data:image/svg+xml,${encodeURIComponent(penSvg)}") 2 20, crosshair`
       } else if (tool === 'eraser') {
         canvas!.isDrawingMode = true
         canvas!.selection = false
@@ -170,9 +173,13 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       } else if (tool === 'select') {
         canvas!.isDrawingMode = false
         canvas!.selection = true
+        canvas!.defaultCursor = 'pointer'
+        canvas!.hoverCursor = 'grab'
+        canvas!.moveCursor = 'grabbing'
       } else if (tool === 'recognize' || tool === 'arrow-line' || tool === 'time-line' || tool === 'place-symbol') {
         canvas!.isDrawingMode = false
         canvas!.selection = false
+        canvas!.defaultCursor = tool === 'place-symbol' ? 'none' : tool === 'recognize' ? 'crosshair' : 'copy'
       }
     }
 
@@ -533,11 +540,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
           style={{
             display: 'block',
             cursor: isRecognizing ? 'wait'
-              : tool === 'select' ? 'default'
+              : tool === 'select' ? 'pointer'
               : tool === 'recognize' ? 'crosshair'
               : tool === 'place-symbol' ? 'none'
               : (tool === 'arrow-line' || tool === 'time-line') ? 'copy'
-              : 'crosshair',
+              : 'none',  // pen/eraser: Fabric.js freeDrawingCursor 사용
           }}
         />
       </div>

@@ -54,7 +54,7 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
     tool, setTool, color, setColor, strokeWidth, setStrokeWidth,
     eraserWidth, setEraserWidth,
     toggleTimelineModal, toggleKaTeXModal, toggleCalculator,
-    boardName, savedAt,
+    boardName, savedAt, zoom, setZoom,
     numberLineStart, numberLineEnd, setNumberLineStart, setNumberLineEnd,
   } = useWhiteboardStore()
 
@@ -137,69 +137,61 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
         </Tooltip>
       </div>
 
-      {/* 펜 색상 */}
-      <div className="flex items-center gap-1 pr-2 border-r border-gray-200">
-        {COLORS.map((c) => (
-          <Tooltip key={c.key}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => { setColor(c.key); setTool('pen') }}
-                className={`w-6 h-6 rounded-full border-2 transition-all ${
-                  color === c.key && tool === 'pen'
-                    ? 'border-blue-500 scale-110 shadow-md'
-                    : 'border-gray-300 hover:scale-105'
-                }`}
-                style={{ backgroundColor: c.hex }}
-              />
-            </TooltipTrigger>
-            <TooltipContent>{c.label}</TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
-
-      {/* 펜 굵기 */}
-      <div className="flex items-center gap-2 px-2 border-r border-gray-200 w-28">
-        <span className="text-xs text-gray-500 shrink-0">굵기</span>
-        <Slider
-          value={[strokeWidth]}
-          min={1}
-          max={20}
-          step={1}
-          onValueChange={([v]) => setStrokeWidth(v)}
-          className="w-full"
-        />
-      </div>
-
-      {/* 지우개 */}
-      <div className="flex items-center gap-1 px-2 border-r border-gray-200">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={tool === 'eraser' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setTool('eraser')}
-              className="h-8 px-2 text-xs"
-            >
-              지우개 (E)
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>지우개 — freehand 획만 지움</TooltipContent>
-        </Tooltip>
-        {/* 지우개 크기 슬라이더 — 지우개 모드일 때만 강조 */}
-        <div className={`flex items-center gap-1.5 transition-opacity ${tool === 'eraser' ? 'opacity-100' : 'opacity-40'}`}>
-          <span className="text-xs text-gray-500 shrink-0">크기</span>
+      {/* 펜 — 두 줄: 색상 / 굵기 */}
+      <div className="flex flex-col justify-center gap-1 px-2 border-r border-gray-200 py-1">
+        {/* 1행: 색상 선택 */}
+        <div className="flex items-center gap-1">
+          {COLORS.map((c) => (
+            <Tooltip key={c.key}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => { setColor(c.key); setTool('pen') }}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${
+                    color === c.key && tool === 'pen'
+                      ? 'border-blue-500 scale-110 shadow-md'
+                      : 'border-gray-300 hover:scale-105'
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              </TooltipTrigger>
+              <TooltipContent>{c.label}</TooltipContent>
+            </Tooltip>
+          ))}
+          <span className="text-[10px] text-gray-400 pl-1">펜</span>
+        </div>
+        {/* 2행: 굵기 슬라이더 */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-gray-500 shrink-0">굵기</span>
           <Slider
-            value={[eraserWidth]}
-            min={5}
-            max={80}
+            value={[strokeWidth]}
+            min={1}
+            max={20}
             step={1}
-            disabled={tool !== 'eraser'}
-            onValueChange={([v]) => setEraserWidth(v)}
+            onValueChange={([v]) => setStrokeWidth(v)}
             className="w-20"
           />
-          <span className="text-xs text-gray-400 w-6 text-right">{eraserWidth}</span>
+          <span className="text-[10px] text-gray-400 w-4">{strokeWidth}</span>
         </div>
-        <div ref={clearBtnRef}>
+      </div>
+
+      {/* 지우개 — 두 줄: 버튼+전체지우기 / 크기 */}
+      <div className="flex flex-col justify-center gap-1 px-2 border-r border-gray-200 py-1">
+        {/* 1행: 지우개 버튼 + 전체 지우기 */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={tool === 'eraser' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTool('eraser')}
+                className="h-6 px-2 text-xs"
+              >
+                지우개 (E)
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>지우개 — freehand 획만 지움</TooltipContent>
+          </Tooltip>
+          <div ref={clearBtnRef}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -212,7 +204,7 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
                   }
                   setShowClearMenu(v => !v)
                 }}
-                className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
+                className="h-6 px-2 text-xs text-red-600 hover:text-red-700"
               >
                 전체 지우기 ▾
               </Button>
@@ -221,25 +213,15 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
           </Tooltip>
           {showClearMenu && clearMenuPos && (
             <>
-              {/* overflow:auto 컨테이너에 잘리지 않도록 fixed 포지셔닝 사용 */}
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setShowClearMenu(false)}
-              />
+              <div className="fixed inset-0 z-40" onClick={() => setShowClearMenu(false)} />
               <div
                 className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]"
                 style={{ top: clearMenuPos.top, left: clearMenuPos.left }}
               >
-                <button
-                  onClick={handleClearAll}
-                  className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium"
-                >
+                <button onClick={handleClearAll} className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium">
                   모두 지우기
                 </button>
-                <button
-                  onClick={handleClearPathsOnly}
-                  className="w-full text-left px-4 py-2 text-xs text-orange-600 hover:bg-orange-50 font-medium"
-                >
+                <button onClick={handleClearPathsOnly} className="w-full text-left px-4 py-2 text-xs text-orange-600 hover:bg-orange-50 font-medium">
                   필기만 지우기
                   <span className="block text-[10px] text-gray-400 font-normal">개체·수식 유지</span>
                 </button>
@@ -247,7 +229,22 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
             </>
           )}
         </div>
-      </div>
+        </div>{/* end 1행 */}
+        {/* 2행: 지우개 크기 슬라이더 */}
+        <div className={`flex items-center gap-1.5 transition-opacity ${tool === 'eraser' ? 'opacity-100' : 'opacity-40'}`}>
+          <span className="text-[10px] text-gray-500 shrink-0">크기</span>
+          <Slider
+            value={[eraserWidth]}
+            min={5}
+            max={80}
+            step={1}
+            disabled={tool !== 'eraser'}
+            onValueChange={([v]) => setEraserWidth(v)}
+            className="w-20"
+          />
+          <span className="text-[10px] text-gray-400 w-5 text-right">{eraserWidth}</span>
+        </div>
+      </div>{/* end 지우개 2행 섹션 */}
 
       {/* 실행취소 */}
       <div className="flex items-center gap-1 px-2 border-r border-gray-200">
@@ -376,6 +373,20 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
           </TooltipTrigger>
           <TooltipContent>공학용 계산기 팝업</TooltipContent>
         </Tooltip>
+      </div>
+
+      {/* 확대/축소 */}
+      <div className="flex flex-col justify-center gap-1 px-2 border-r border-gray-200 py-1">
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="sm" onClick={() => setZoom(Math.max(0.2, Math.round((zoom - 0.1) * 10) / 10))} className="h-6 w-6 p-0 text-sm font-bold">−</Button>
+          <button onClick={() => setZoom(1)} className="text-xs text-gray-600 min-w-[38px] text-center hover:text-blue-600 transition-colors tabular-nums">
+            {Math.round(zoom * 100)}%
+          </button>
+          <Button variant="ghost" size="sm" onClick={() => setZoom(Math.min(3, Math.round((zoom + 0.1) * 10) / 10))} className="h-6 w-6 p-0 text-sm font-bold">+</Button>
+        </div>
+        <div className="flex justify-center">
+          <span className="text-[10px] text-gray-400">확대/축소</span>
+        </div>
       </div>
 
       {/* 저장 / PNG */}
