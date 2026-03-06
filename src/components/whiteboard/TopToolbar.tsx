@@ -111,7 +111,7 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
               variant={isSymbolPanelOpen ? 'default' : 'ghost'}
               size="sm"
               onClick={onToggleSymbolPanel}
-              className="h-8 px-2 text-xs font-bold text-[#1E2D5E]"
+              className={`h-8 px-2 text-xs font-bold ${isSymbolPanelOpen ? '' : 'text-[#1E2D5E]'}`}
             >
               𝑖 기호
             </Button>
