@@ -16,11 +16,12 @@ interface LeftSidebarProps {
   onSwitchPage: (index: number) => void
   onDeletePage: (index: number) => void
   onDuplicatePage: (index: number) => void
+  onNewBoard: () => void
 }
 
 export default function LeftSidebar({
   boards, currentBoard, currentPageIndex, pages,
-  onLoadBoard, onDeleteBoard, onSwitchPage, onDeletePage, onDuplicatePage,
+  onLoadBoard, onDeleteBoard, onSwitchPage, onDeletePage, onDuplicatePage, onNewBoard,
 }: LeftSidebarProps) {
   const { isSidebarOpen, toggleSidebar } = useWhiteboardStore()
 
@@ -29,6 +30,13 @@ export default function LeftSidebar({
       <SheetContent side="left" className="w-64 p-0 flex flex-col">
         <SheetHeader className="p-4 border-b border-gray-200">
           <SheetTitle className="text-sm font-semibold text-[#1E2D5E]">보드 & 페이지</SheetTitle>
+          <Button
+            size="sm"
+            onClick={() => { onNewBoard(); toggleSidebar() }}
+            className="mt-2 w-full bg-[#1E2D5E] hover:bg-[#162248] text-white text-xs h-8"
+          >
+            + 새 보드 만들기
+          </Button>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto">

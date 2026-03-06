@@ -15,6 +15,9 @@ interface TopToolbarProps {
   getCanvas: () => FabricCanvas | null
   isSymbolPanelOpen: boolean
   onToggleSymbolPanel: () => void
+  onNewBoard: () => void
+  onOpenBoards: () => void
+  onRenameBoard: () => void
 }
 
 const COLORS = [
@@ -25,7 +28,7 @@ const COLORS = [
 
 const WIDTHS = [2, 4, 8]
 
-export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel }: TopToolbarProps) {
+export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel, onNewBoard, onOpenBoards, onRenameBoard }: TopToolbarProps) {
   const [showClearMenu, setShowClearMenu] = useState(false)
   const [clearMenuPos, setClearMenuPos] = useState<{ top: number; left: number } | null>(null)
   const clearBtnRef = useRef<HTMLDivElement>(null)
@@ -389,29 +392,59 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
         </div>
       </div>
 
-      {/* 저장 / PNG */}
+      {/* 보드 관리 — 새 보드 / 불러오기 / 저장 / PNG */}
       <div className="flex items-center gap-1 px-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={onSave} className="h-8 px-2 text-xs">
+            <Button variant="ghost" size="sm" onClick={onNewBoard} className="h-8 px-2 text-xs">
+              새 보드 (Ctrl+N)
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>새 빈 보드 생성</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="sm" onClick={onOpenBoards} className="h-8 px-2 text-xs font-medium text-[#1E2D5E]">
+              불러오기
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>저장된 보드 열기</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="sm" onClick={onSave} className="h-8 px-2 text-xs font-medium text-[#1E2D5E]">
               저장 (Ctrl+S)
             </Button>
           </TooltipTrigger>
-          <TooltipContent>로컬 IndexedDB 저장</TooltipContent>
+          <TooltipContent>현재 보드를 로컬에 저장</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="sm" onClick={handleExportPNG} className="h-8 px-2 text-xs">
-              PNG 내보내기
+              PNG
             </Button>
           </TooltipTrigger>
           <TooltipContent>현재 페이지를 PNG로 다운로드</TooltipContent>
         </Tooltip>
       </div>
 
-      {/* 저장 상태 */}
+      {/* 보드 이름 / 저장 상태 */}
       <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 whitespace-nowrap pl-2">
-        {boardName && <span className="font-medium text-gray-600">{boardName}</span>}
+        {boardName ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onRenameBoard}
+                className="font-medium text-gray-600 hover:text-blue-600 transition-colors cursor-pointer underline-offset-2 hover:underline"
+              >
+                {boardName}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>클릭하여 보드 이름 변경</TooltipContent>
+          </Tooltip>
+        ) : (
+          <span className="text-gray-400 italic">미저장</span>
+        )}
         {saveTime && <span>저장됨 · {saveTime}</span>}
       </div>
       </div>{/* end scrollable */}

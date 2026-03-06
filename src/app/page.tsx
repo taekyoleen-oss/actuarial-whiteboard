@@ -87,6 +87,7 @@ export default function Home() {
   async function loadBoardIntoCanvas(board: LocalBoard) {
     const canvas = getCanvas()
     if (!canvas) return
+    undoStacks.clear()
     setCurrentBoard(board)
     setBoardName(board.name)
     setPages(board.pages)
@@ -96,12 +97,26 @@ export default function Home() {
     if (page) {
       await canvas.loadFromJSON(JSON.parse(page.canvasJSON))
       canvas.requestRenderAll()
-      // Push initial state so undo doesn't wipe the entire board on first undo
       const pageId = page.id
       if (!undoStacks.has(pageId)) undoStacks.set(pageId, [])
       undoStacks.get(pageId)!.push(JSON.stringify(canvas.toJSON()))
     }
     useWhiteboardStore.getState().setCurrentPageIndex(pageIdx)
+  }
+
+  async function handleNewBoard() {
+    const canvas = getCanvas()
+    if (!canvas) return
+    undoStacks.clear()
+    canvas.clear()
+    canvas.backgroundColor = '#ffffff'
+    canvas.requestRenderAll()
+    const newPage = createEmptyPage(0)
+    setPages([newPage])
+    setCurrentBoard(null)
+    setBoardName(null)
+    setSavedAt(null)
+    useWhiteboardStore.getState().setCurrentPageIndex(0)
   }
 
   // Undo — stack stores states after each action; pop current then restore previous
@@ -140,18 +155,23 @@ export default function Home() {
 
   function scheduleAutoSave() {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => doSave(false), 2000)
+    autoSaveTimer.current = setTimeout(() => doSave(), 2000)
   }
 
-  async function doSave(askName: boolean = true) {
+  function generateDefaultName(): string {
+    const d = new Date()
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    return `보드 ${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+  }
+
+  async function doSave() {
     const canvas = getCanvas()
     if (!canvas) return
 
-    const currentBoardName = useWhiteboardStore.getState().boardName
-
-    if (askName && !currentBoardName) {
-      toggleBoardNameDialog()
-      return
+    let name = useWhiteboardStore.getState().boardName
+    if (!name) {
+      name = generateDefaultName()
+      setBoardName(name)
     }
 
     const thumbnail = generateThumbnail(canvas)
@@ -161,7 +181,6 @@ export default function Home() {
       i === currentIndex ? { ...p, canvasJSON, thumbnail } : p
     )
 
-    const name = currentBoardName ?? '새 보드'
     const board: LocalBoard = currentBoard
       ? { ...currentBoard, name, pages: updatedPages, currentPageIndex: currentIndex, updatedAt: Date.now() }
       : { ...createNewBoard(name), pages: updatedPages, currentPageIndex: currentIndex }
@@ -173,9 +192,10 @@ export default function Home() {
     await refreshBoards()
   }
 
+  // 이름 변경 후 저장
   function handleSaveWithName(name: string) {
     setBoardName(name)
-    setTimeout(() => doSave(false), 50)
+    setTimeout(() => doSave(), 50)
   }
 
   // Keyboard shortcuts
@@ -192,6 +212,7 @@ export default function Home() {
       }
       if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); handleUndo(); return }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); doSave(); return }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); handleNewBoard(); return }
       if ((e.metaKey || e.ctrlKey) && e.key === 'm') { e.preventDefault(); addPage(); return }
       if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
@@ -226,8 +247,8 @@ export default function Home() {
   // visibilitychange: save immediately
   useEffect(() => {
     function onVisibility() {
-      if (document.visibilityState === 'hidden' && useWhiteboardStore.getState().boardName) {
-        doSave(false)
+      if (document.visibilityState === 'hidden') {
+        doSave()
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
@@ -240,11 +261,14 @@ export default function Home() {
       {/* Top toolbar */}
       <TopToolbar
         onUndo={handleUndo}
-        onSave={() => doSave()}
+        onSave={doSave}
         onStrokeEnd={handleStrokeEnd}
         getCanvas={getCanvas}
         isSymbolPanelOpen={isSymbolPanelOpen}
         onToggleSymbolPanel={() => setIsSymbolPanelOpen(v => !v)}
+        onNewBoard={handleNewBoard}
+        onOpenBoards={toggleSidebar}
+        onRenameBoard={toggleBoardNameDialog}
       />
 
       {/* Sidebar toggle button */}
@@ -285,7 +309,8 @@ export default function Home() {
         currentPageIndex={currentIndex}
         pages={pages}
         onLoadBoard={loadBoardIntoCanvas}
-        onDeleteBoard={async (id) => { await removeBoard(id); if (currentBoard?.id === id) setCurrentBoard(null) }}
+        onDeleteBoard={async (id) => { await removeBoard(id); if (currentBoard?.id === id) { setCurrentBoard(null); setBoardName(null); setSavedAt(null) } }}
+        onNewBoard={handleNewBoard}
         onSwitchPage={switchToPage}
         onDeletePage={deletePage}
         onDuplicatePage={duplicatePage}
