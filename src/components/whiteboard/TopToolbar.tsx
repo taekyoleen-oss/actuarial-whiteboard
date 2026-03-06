@@ -392,40 +392,44 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
         </div>
       </div>
 
-      {/* 보드 관리 — 새 보드 / 불러오기 / 저장 / PNG */}
-      <div className="flex items-center gap-1 px-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={onNewBoard} className="h-8 px-2 text-xs">
-              새 보드 (Ctrl+N)
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>새 빈 보드 생성</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={onOpenBoards} className="h-8 px-2 text-xs font-medium text-[#1E2D5E]">
-              불러오기
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>저장된 보드 열기</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={onSave} className="h-8 px-2 text-xs font-medium text-[#1E2D5E]">
-              저장 (Ctrl+S)
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>현재 보드를 로컬에 저장</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={handleExportPNG} className="h-8 px-2 text-xs">
-              PNG
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>현재 페이지를 PNG로 다운로드</TooltipContent>
-        </Tooltip>
+      {/* 보드 관리 — 두 줄: 새보드·불러오기 / 저장·PNG */}
+      <div className="flex flex-col justify-center gap-1 px-2 border-r border-gray-200 py-1">
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={onNewBoard} className="h-6 px-2 text-xs">
+                새 보드
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>새 빈 보드 생성 (Ctrl+N)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={onOpenBoards} className="h-6 px-2 text-xs font-medium text-[#1E2D5E]">
+                불러오기
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>저장된 보드 열기</TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={onSave} className="h-6 px-2 text-xs font-medium text-[#1E2D5E]">
+                저장
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>현재 보드를 로컬에 저장 (Ctrl+S)</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={handleExportPNG} className="h-6 px-2 text-xs">
+                PNG 내보내기
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>현재 페이지를 PNG로 다운로드</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* 보드 이름 / 저장 상태 */}
