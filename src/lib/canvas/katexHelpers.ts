@@ -19,10 +19,11 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
     'top:0',
     'background-color:transparent',
     'color:#000000',
-    'padding:4px 6px',
+    'padding:20px 12px 28px 12px', // 위아래 여유 확보 → 위첨자·아래첨자·\angl 잘림 방지
     'display:inline-block',
     'white-space:nowrap',
-    'font-size:28px',  // 크게 렌더링 → 첨자·\angl 등 세부 요소 선명
+    'font-size:28px',
+    'line-height:1',
   ].join(';')
   container.innerHTML = html
   document.body.appendChild(container)

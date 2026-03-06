@@ -179,7 +179,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       } else if (tool === 'recognize' || tool === 'arrow-line' || tool === 'time-line' || tool === 'place-symbol') {
         canvas!.isDrawingMode = false
         canvas!.selection = false
-        canvas!.defaultCursor = tool === 'place-symbol' ? 'none' : tool === 'recognize' ? 'crosshair' : 'copy'
+        canvas!.defaultCursor = tool === 'place-symbol' ? 'crosshair' : tool === 'recognize' ? 'crosshair' : 'copy'
       }
     }
 
@@ -542,7 +542,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
             cursor: isRecognizing ? 'wait'
               : tool === 'select' ? 'pointer'
               : tool === 'recognize' ? 'crosshair'
-              : tool === 'place-symbol' ? 'none'
+              : tool === 'place-symbol' ? 'crosshair'
               : (tool === 'arrow-line' || tool === 'time-line') ? 'copy'
               : 'none',  // pen/eraser: Fabric.js freeDrawingCursor 사용
           }}
