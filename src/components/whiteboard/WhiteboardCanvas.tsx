@@ -492,8 +492,8 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         const url = await latexToSVGDataURL(pendingSymbolLatex)
         const { FabricImage } = await import('fabric')
         const img = await FabricImage.fromURL(url)
-        // html2canvas scale:2 로 캡처하므로 0.5배로 보정 → CSS 픽셀 기준 정상 크기
-        img.set({ left: x, top: y, originX: 'center', originY: 'center', scaleX: 0.5, scaleY: 0.5 })
+        // html2canvas scale:4 로 캡처하므로 0.25배로 보정 → CSS 픽셀 기준 정상 크기
+        img.set({ left: x, top: y, originX: 'center', originY: 'center', scaleX: 0.25, scaleY: 0.25 })
         canvas.add(img)
         canvas.setActiveObject(img)
         canvas.requestRenderAll()

@@ -27,6 +27,8 @@ const WIDTHS = [2, 4, 8]
 
 export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel }: TopToolbarProps) {
   const [showClearMenu, setShowClearMenu] = useState(false)
+  const [clearMenuPos, setClearMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const clearBtnRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -197,13 +199,19 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
           />
           <span className="text-xs text-gray-400 w-6 text-right">{eraserWidth}</span>
         </div>
-        <div className="relative">
+        <div ref={clearBtnRef}>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowClearMenu(v => !v)}
+                onClick={() => {
+                  if (!showClearMenu) {
+                    const rect = clearBtnRef.current?.getBoundingClientRect()
+                    if (rect) setClearMenuPos({ top: rect.bottom + 2, left: rect.left })
+                  }
+                  setShowClearMenu(v => !v)
+                }}
                 className="h-8 px-2 text-xs text-red-600 hover:text-red-700"
               >
                 전체 지우기 ▾
@@ -211,14 +219,17 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
             </TooltipTrigger>
             <TooltipContent>현재 페이지 초기화 옵션</TooltipContent>
           </Tooltip>
-          {showClearMenu && (
+          {showClearMenu && clearMenuPos && (
             <>
-              {/* 배경 오버레이 — 클릭하면 메뉴 닫힘 */}
+              {/* overflow:auto 컨테이너에 잘리지 않도록 fixed 포지셔닝 사용 */}
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowClearMenu(false)}
               />
-              <div className="absolute left-0 top-9 z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+              <div
+                className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]"
+                style={{ top: clearMenuPos.top, left: clearMenuPos.left }}
+              >
                 <button
                   onClick={handleClearAll}
                   className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 font-medium"

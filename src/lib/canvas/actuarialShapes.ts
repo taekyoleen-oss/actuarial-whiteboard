@@ -119,7 +119,7 @@ export function generateTimelineSVG(config: TimelineConfig): string {
 export function generateArrowLineSVG(pixelWidth: number, range: number): string {
   const TICK = 94   // 숫자선과 동일 간격
   const hasTicks = range >= 1
-  const h = hasTicks ? 68 : 40
+  const h = hasTicks ? 95 : 40
   const ay = 20
   const x0 = 10
   const x1 = pixelWidth - 10
@@ -130,7 +130,7 @@ export function generateArrowLineSVG(pixelWidth: number, range: number): string 
 
   function tickSVG(x: number, lbl: string): string {
     return `<line x1="${x}" y1="${ay - TH}" x2="${x}" y2="${ay + TH}" stroke="#1A1A1A" stroke-width="2"/>` +
-      `<text x="${x}" y="${ay + TH + 16}" text-anchor="middle" font-family="${FONT}" font-size="13" fill="#1A1A1A">${lbl}</text>`
+      `<text x="${x}" y="${ay + TH + 26}" text-anchor="middle" font-family="${FONT}" font-size="26" fill="#1A1A1A">${lbl}</text>`
   }
 
   const lineEnd = x1 - ah
@@ -198,7 +198,7 @@ export function generateNumberLineSVG(startStr: string, endStr: string): string 
   const TH = 16     // tick half-height
   const AH = 13     // arrowhead length
   const AW = 8      // arrowhead half-width
-  const H = 88      // SVG height
+  const H = 115     // SVG height (26px 폰트 기간 레이블 수용)
   const FONT = 'Pretendard,sans-serif'
 
   const isStartInf = startStr.trim() === '-'
@@ -247,7 +247,7 @@ export function generateNumberLineSVG(startStr: string, endStr: string): string 
 
   function tickSVG(x: number, label: string): string {
     return `<line x1="${x}" y1="${AY - TH}" x2="${x}" y2="${AY + TH}" stroke="#1A1A1A" stroke-width="2"/>` +
-      `<text x="${x}" y="${AY + TH + 18}" text-anchor="middle" font-family="${FONT}" font-size="13" fill="#1A1A1A">${label}</text>`
+      `<text x="${x}" y="${AY + TH + 28}" text-anchor="middle" font-family="${FONT}" font-size="26" fill="#1A1A1A">${label}</text>`
   }
 
   if (!hasDots) {

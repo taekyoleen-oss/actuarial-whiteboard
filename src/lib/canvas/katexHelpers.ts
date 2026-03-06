@@ -61,7 +61,7 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
     const html2canvas = (await import('html2canvas')).default
     const capturedCanvas = await html2canvas(container, {
       backgroundColor: null,  // 투명 배경
-      scale: 2,
+      scale: 4,               // 4× 고해상도 — 오버라인 등 얇은 선 선명하게 렌더링
       logging: false,
       useCORS: true,
     })
