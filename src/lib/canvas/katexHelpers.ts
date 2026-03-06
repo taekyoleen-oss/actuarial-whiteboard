@@ -30,16 +30,44 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
   // 웹폰트 로드 대기
   await document.fonts.ready
 
-  // html-to-image: DOM을 SVG foreignObject로 직렬화 후 브라우저가 직접 렌더링.
-  // html2canvas와 달리 oklch()/color-mix() 등 현대 CSS를 브라우저가 처리하므로 색상 파싱 에러 없음.
+  // html2canvas는 같은 문서 컨텍스트에서 렌더링 → KaTeX 웹폰트 정상 사용.
+  // 단, Tailwind v4의 oklch()/color-mix() 색상 함수를 파싱 못 하므로,
+  // 캡처 전에 모든 CSS 커스텀 속성을 hex로, outline-color를 transparent로 임시 재정의.
+  const tempStyle = document.createElement('style')
+  tempStyle.textContent = `
+    :root {
+      --background:#ffffff; --foreground:#111827;
+      --card:#ffffff; --card-foreground:#111827;
+      --popover:#ffffff; --popover-foreground:#111827;
+      --primary:#1e2d5e; --primary-foreground:#f8fafc;
+      --secondary:#f1f5f9; --secondary-foreground:#1e2d5e;
+      --muted:#f1f5f9; --muted-foreground:#64748b;
+      --accent:#f1f5f9; --accent-foreground:#1e2d5e;
+      --destructive:#ef4444; --border:#e2e8f0; --input:#e2e8f0; --ring:#94a3b8;
+      --chart-1:#f59e0b; --chart-2:#10b981; --chart-3:#3b82f6;
+      --chart-4:#f97316; --chart-5:#eab308;
+      --sidebar:#f8fafc; --sidebar-foreground:#111827;
+      --sidebar-primary:#1e2d5e; --sidebar-primary-foreground:#f8fafc;
+      --sidebar-accent:#f1f5f9; --sidebar-accent-foreground:#1e2d5e;
+      --sidebar-border:#e2e8f0; --sidebar-ring:#94a3b8;
+    }
+    html,body { background-color:#ffffff !important; color:#111827 !important; }
+    * { border-color:#e2e8f0 !important; outline-color:transparent !important; }
+  `
+  document.head.appendChild(tempStyle)
+
   let dataURL = ''
   try {
-    const { toPng } = await import('html-to-image')
-    dataURL = await toPng(container, {
+    const html2canvas = (await import('html2canvas')).default
+    const capturedCanvas = await html2canvas(container, {
       backgroundColor: '#ffffff',
-      pixelRatio: 2,
+      scale: 2,
+      logging: false,
+      useCORS: true,
     })
+    dataURL = capturedCanvas.toDataURL('image/png')
   } finally {
+    document.head.removeChild(tempStyle)
     document.body.removeChild(container)
   }
   return dataURL
