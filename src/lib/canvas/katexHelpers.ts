@@ -28,7 +28,7 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
     'top:0',
     'background-color:transparent',
     'color:#000000',
-    'padding:32px 20px 64px 20px', // 위아래 여유 크게 확보 → 위첨자·아래첨자·\angl 잘림 방지
+    'padding:6px 10px 14px 10px', // 위첨자·아래첨자 최소 여유만 확보
     'display:inline-block',
     'white-space:nowrap',
     'font-size:28px',
