@@ -17,9 +17,9 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
     'position:fixed',
     'left:-9999px',
     'top:0',
-    'background-color:#ffffff',
+    'background-color:transparent',
     'color:#000000',
-    'padding:6px 14px',
+    'padding:2px 4px',
     'display:inline-block',
     'white-space:nowrap',
     'font-size:20px',
@@ -60,7 +60,7 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
   try {
     const html2canvas = (await import('html2canvas')).default
     const capturedCanvas = await html2canvas(container, {
-      backgroundColor: '#ffffff',
+      backgroundColor: null,  // 투명 배경
       scale: 2,
       logging: false,
       useCORS: true,

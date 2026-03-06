@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useWhiteboardStore } from '@/store/whiteboardStore'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -27,6 +27,27 @@ const WIDTHS = [2, 4, 8]
 
 export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel }: TopToolbarProps) {
   const [showClearMenu, setShowClearMenu] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  function checkScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 0)
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1)
+  }
+
+  useEffect(() => {
+    checkScroll()
+    const el = scrollRef.current
+    if (!el) return
+    el.addEventListener('scroll', checkScroll)
+    const ro = new ResizeObserver(checkScroll)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', checkScroll); ro.disconnect() }
+  }, [])
+
   const {
     tool, setTool, color, setColor, strokeWidth, setStrokeWidth,
     eraserWidth, setEraserWidth,
@@ -67,7 +88,19 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
   }
 
   return (
-    <div className="h-12 flex items-center gap-1 px-3 border-b border-gray-200 bg-white/95 backdrop-blur-sm z-10 flex-shrink-0">
+    <div className="flex items-stretch border-b border-gray-200 bg-white/95 backdrop-blur-sm z-10 flex-shrink-0 relative min-h-[48px]">
+      {/* 왼쪽 스크롤 화살표 */}
+      {canScrollLeft && (
+        <button
+          onClick={() => scrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' })}
+          className="flex-shrink-0 w-7 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 border-r border-gray-200 text-lg font-bold z-10"
+        >‹</button>
+      )}
+      <div
+        ref={scrollRef}
+        className="flex items-center gap-1 px-3 overflow-x-auto flex-1"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' } as React.CSSProperties}
+      >
       {/* 이자론 기호 패널 토글 */}
       <div className="flex items-center gap-1 pr-2 border-r border-gray-200">
         <Tooltip>
@@ -237,62 +270,55 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
         </Tooltip>
       </div>
 
-      {/* 자동 화살표·숫자선 그리기 */}
-      <div className="flex items-center gap-1 px-2 border-r border-gray-200">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={tool === 'arrow-line' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setTool(tool === 'arrow-line' ? 'pen' : 'arrow-line')}
-              className="h-8 px-2 text-xs font-medium"
-            >
-              → 화살표
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>캔버스 클릭 위치에 수평 화살표 배치</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={tool === 'time-line' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setTool(tool === 'time-line' ? 'pen' : 'time-line')}
-              className="h-8 px-2 text-xs font-medium"
-            >
-              시간선
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>클릭 위치에 시간 눈금 타임라인 배치</TooltipContent>
-        </Tooltip>
-        {/* 시작/끝 입력 — time-line 모드일 때만 강조 */}
+      {/* 자동 화살표·시간선 그리기 — 두 줄 레이아웃 */}
+      <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
+        {/* 1행: 버튼 */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={tool === 'arrow-line' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTool(tool === 'arrow-line' ? 'pen' : 'arrow-line')}
+                className="h-6 px-2 text-xs font-medium"
+              >
+                → 화살표
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>드래그로 수평 화살표 길이 결정</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={tool === 'time-line' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setTool(tool === 'time-line' ? 'pen' : 'time-line')}
+                className="h-6 px-2 text-xs font-medium"
+              >
+                시간선
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>클릭 위치에 시간 눈금 타임라인 배치</TooltipContent>
+          </Tooltip>
+        </div>
+        {/* 2행: 시작/끝 입력 */}
         <div className={`flex items-center gap-1 transition-opacity ${tool === 'time-line' ? 'opacity-100' : 'opacity-40'}`}>
           <span className="text-xs text-gray-500">시작</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <input
-                value={numberLineStart}
-                onChange={(e) => setNumberLineStart(e.target.value)}
-                disabled={tool !== 'time-line'}
-                className="w-10 h-7 border border-gray-300 rounded px-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-                placeholder="0"
-              />
-            </TooltipTrigger>
-            <TooltipContent>시작값 (숫자 또는 - 로 -∞)</TooltipContent>
-          </Tooltip>
+          <input
+            value={numberLineStart}
+            onChange={(e) => setNumberLineStart(e.target.value)}
+            disabled={tool !== 'time-line'}
+            className="w-9 h-5 border border-gray-300 rounded px-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+            placeholder="0"
+          />
           <span className="text-xs text-gray-400">~</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <input
-                value={numberLineEnd}
-                onChange={(e) => setNumberLineEnd(e.target.value)}
-                disabled={tool !== 'time-line'}
-                className="w-10 h-7 border border-gray-300 rounded px-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-                placeholder="10"
-              />
-            </TooltipTrigger>
-            <TooltipContent>끝값 (숫자, n, 또는 - 로 ∞)</TooltipContent>
-          </Tooltip>
+          <input
+            value={numberLineEnd}
+            onChange={(e) => setNumberLineEnd(e.target.value)}
+            disabled={tool !== 'time-line'}
+            className="w-9 h-5 border border-gray-300 rounded px-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+            placeholder="10"
+          />
         </div>
       </div>
 
@@ -362,10 +388,19 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
       </div>
 
       {/* 저장 상태 */}
-      <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
+      <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 whitespace-nowrap pl-2">
         {boardName && <span className="font-medium text-gray-600">{boardName}</span>}
         {saveTime && <span>저장됨 · {saveTime}</span>}
       </div>
+      </div>{/* end scrollable */}
+
+      {/* 오른쪽 스크롤 화살표 */}
+      {canScrollRight && (
+        <button
+          onClick={() => scrollRef.current?.scrollBy({ left: 200, behavior: 'smooth' })}
+          className="flex-shrink-0 w-7 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 border-l border-gray-200 text-lg font-bold z-10"
+        >›</button>
+      )}
     </div>
   )
 }
