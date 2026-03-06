@@ -19,10 +19,10 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
     'top:0',
     'background-color:transparent',
     'color:#000000',
-    'padding:2px 4px',
+    'padding:4px 6px',
     'display:inline-block',
     'white-space:nowrap',
-    'font-size:20px',
+    'font-size:28px',  // 크게 렌더링 → 첨자·\angl 등 세부 요소 선명
   ].join(';')
   container.innerHTML = html
   document.body.appendChild(container)
@@ -53,6 +53,9 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
     }
     html,body { background-color:#ffffff !important; color:#111827 !important; }
     * { border-color:#e2e8f0 !important; outline-color:transparent !important; }
+    /* KaTeX는 border로 \angl 직각 기호·분수 가로선 등을 그리므로
+       전역 border-color 재정의를 KaTeX 요소에 대해 검정으로 복원 */
+    .katex, .katex * { border-color:#000000 !important; }
   `
   document.head.appendChild(tempStyle)
 
