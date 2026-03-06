@@ -165,7 +165,7 @@ export default function InterestSymbolPanel() {
 
               {/* 기호 버튼 — 접혔을 때 숨김 */}
               {!isCollapsed && (
-                <div className="flex flex-wrap gap-1.5 px-2 pb-2">
+                <div className="flex flex-wrap gap-1 px-2 pb-1.5">
                   {group.items.map((item) => {
                     const isSelected = pendingSymbolLatex === item.latex && isPlaceMode
                     return (
@@ -175,8 +175,8 @@ export default function InterestSymbolPanel() {
                         title={item.label}
                         className={`
                           inline-flex items-center justify-center
-                          min-w-[44px] px-2 py-1.5 rounded-md
-                          border transition-all text-[13px] cursor-pointer
+                          min-w-[40px] px-1.5 py-0.5 rounded
+                          border transition-all text-[13px] cursor-pointer leading-none
                           ${isSelected
                             ? 'border-blue-500 bg-blue-100 shadow-sm ring-1 ring-blue-400'
                             : 'border-gray-200 bg-white hover:border-blue-400 hover:bg-blue-50'}
