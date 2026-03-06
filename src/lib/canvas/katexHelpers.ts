@@ -17,7 +17,8 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
     'position:fixed',
     'left:-9999px',
     'top:0',
-    'background:white',
+    'background-color:#ffffff',
+    'color:#000000',
     'padding:6px 14px',
     'display:inline-block',
     'white-space:nowrap',
@@ -29,16 +30,27 @@ export async function latexToSVGDataURL(latex: string): Promise<string> {
   // 웹폰트 로드 대기
   await document.fonts.ready
 
-  const html2canvas = (await import('html2canvas')).default
-  const capturedCanvas = await html2canvas(container, {
-    backgroundColor: '#ffffff',
-    scale: 2,        // 레티나 대응 2×
-    logging: false,
-    useCORS: true,
-  })
+  // html2canvas v1.x는 oklch()/lab() 같은 현대 CSS 색상 함수를 지원하지 않음.
+  // Tailwind v4가 body/html에 oklch() 색상을 사용하므로, 캡처 전에 임시로 안전한 색상으로 재정의.
+  const tempStyle = document.createElement('style')
+  tempStyle.textContent = 'html,body{background-color:#ffffff!important;color:#000000!important;}'
+  document.head.appendChild(tempStyle)
 
-  document.body.removeChild(container)
-  return capturedCanvas.toDataURL('image/png')
+  let dataURL = ''
+  try {
+    const html2canvas = (await import('html2canvas')).default
+    const capturedCanvas = await html2canvas(container, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      logging: false,
+      useCORS: true,
+    })
+    dataURL = capturedCanvas.toDataURL('image/png')
+  } finally {
+    document.head.removeChild(tempStyle)
+    document.body.removeChild(container)
+  }
+  return dataURL
 }
 
 export function validateLatex(latex: string): string | null {
