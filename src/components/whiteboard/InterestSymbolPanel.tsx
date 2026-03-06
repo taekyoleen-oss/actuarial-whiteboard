@@ -52,6 +52,33 @@ const SYMBOL_GROUPS: { title: string; items: { label: string; latex: string }[] 
     ],
   },
   {
+    title: '명목이율 세부',
+    items: [
+      { label: 'i^(2)',  latex: 'i^{(2)}' },
+      { label: 'i^(4)',  latex: 'i^{(4)}' },
+      { label: 'i^(12)', latex: 'i^{(12)}' },
+      { label: 'd^(2)',  latex: 'd^{(2)}' },
+      { label: 'd^(4)',  latex: 'd^{(4)}' },
+      { label: 'd^(12)', latex: 'd^{(12)}' },
+      { label: 'i^(m) 변환', latex: 'i^{(m)}=m\\left[(1+i)^{1/m}-1\\right]' },
+      { label: 'd^(m) 변환', latex: 'd^{(m)}=m\\left[1-(1-d)^{1/m}\\right]' },
+      { label: 'i↔d^(m)', latex: 'i^{(m)}=\\dfrac{d^{(m)}}{1-d^{(m)}/m}' },
+    ],
+  },
+  {
+    title: '시점별 적립 / 현가',
+    items: [
+      { label: 'A(0)', latex: 'A(0)' },
+      { label: 'A(1)', latex: 'A(1)' },
+      { label: 'A(t)', latex: 'A(t)' },
+      { label: 'A(n)', latex: 'A(n)' },
+      { label: 'a(0)', latex: 'a(0)' },
+      { label: 'a(1)', latex: 'a(1)' },
+      { label: 'a(t)', latex: 'a(t)' },
+      { label: 'a(n)', latex: 'a(n)' },
+    ],
+  },
+  {
     title: '주요 관계식',
     items: [
       { label: 'v = 1/(1+i)',  latex: 'v = \\dfrac{1}{1+i}' },

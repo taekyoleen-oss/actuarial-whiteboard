@@ -1,11 +1,20 @@
 import katex from 'katex'
 
 /**
+ * \angl{X} → \overline{X}| 로 변환:
+ * KaTeX의 \angl은 border 기반 박스라 subscript 위치 메트릭이 크게 잡혀
+ * 아래첨자 위치가 어긋남. \overline{X}| 는 동일한 보험수리 표기를 올바르게 렌더링.
+ */
+function preprocessLatex(latex: string): string {
+  return latex.replace(/\\angl\{([^}]*)\}/g, '\\overline{$1}|')
+}
+
+/**
  * KaTeX LaTeX → PNG data URL
  * html2canvas로 페이지 폰트(KaTeX 웹폰트)를 그대로 반영하여 캡처
  */
 export async function latexToSVGDataURL(latex: string): Promise<string> {
-  const html = katex.renderToString(latex, {
+  const html = katex.renderToString(preprocessLatex(latex), {
     throwOnError: false,
     displayMode: true,
     output: 'html',
@@ -89,7 +98,7 @@ export function validateLatex(latex: string): string | null {
 
 export function renderLatexPreview(latex: string): string {
   try {
-    return katex.renderToString(latex, {
+    return katex.renderToString(preprocessLatex(latex), {
       throwOnError: false,
       displayMode: true,
     })
