@@ -11,9 +11,42 @@ const SYMBOL_GROUPS: { title: string; items: { label: string; latex: string }[] 
       { label: '이자율',         latex: 'i' },
       { label: '할인율',         latex: 'd' },
       { label: '현가율',         latex: 'v' },
+      { label: '1+i',            latex: '1+i' },
       { label: '이력 (Force of interest)', latex: '\\delta' },
       { label: '명목 이자율 i^(m)',  latex: 'i^{(m)}' },
       { label: '명목 할인율 d^(m)',  latex: 'd^{(m)}' },
+    ],
+  },
+  {
+    title: '시점별 적립 / 현가',
+    items: [
+      { label: 'A(0)', latex: 'A(0)' },
+      { label: 'A(1)', latex: 'A(1)' },
+      { label: 'A(t)', latex: 'A(t)' },
+      { label: 'A(n)', latex: 'A(n)' },
+      { label: 'a(0)', latex: 'a(0)' },
+      { label: 'a(1)', latex: 'a(1)' },
+      { label: 'a(t)', latex: 'a(t)' },
+      { label: 'a(n)', latex: 'a(n)' },
+    ],
+  },
+  {
+    title: '현가·종가 인수',
+    items: [
+      { label: '현가율 v^n',        latex: 'v^n' },
+      { label: '종가율 (1+i)^n',    latex: '(1+i)^n' },
+      { label: '현가율 (1+i)^{-n}', latex: '(1+i)^{-n}' },
+      { label: '연속 복리 e^{nδ}',  latex: 'e^{n\\delta}' },
+      { label: '연속 현가 e^{-nδ}', latex: 'e^{-n\\delta}' },
+    ],
+  },
+  {
+    title: '주요 관계식',
+    items: [
+      { label: 'v = 1/(1+i)', latex: 'v = \\dfrac{1}{1+i}' },
+      { label: 'd = iv',      latex: 'd = iv' },
+      { label: 'd = 1-v',     latex: 'd = 1-v' },
+      { label: 'i = e^δ - 1', latex: 'i = e^{\\delta}-1' },
     ],
   },
   {
@@ -31,47 +64,13 @@ const SYMBOL_GROUPS: { title: string; items: { label: string; latex: string }[] 
     ],
   },
   {
-    title: '현가·종가 인수',
-    items: [
-      { label: '현가율 v^n',        latex: 'v^n' },
-      { label: '종가율 (1+i)^n',    latex: '(1+i)^n' },
-      { label: '현가율 (1+i)^{-n}', latex: '(1+i)^{-n}' },
-      { label: '연속 복리 e^{nδ}',  latex: 'e^{n\\delta}' },
-      { label: '연속 현가 e^{-nδ}', latex: 'e^{-n\\delta}' },
-    ],
-  },
-  {
-    title: '시점별 적립 / 현가',
-    items: [
-      { label: 'A(0)', latex: 'A(0)' },
-      { label: 'A(1)', latex: 'A(1)' },
-      { label: 'A(t)', latex: 'A(t)' },
-      { label: 'A(n)', latex: 'A(n)' },
-      { label: 'a(0)', latex: 'a(0)' },
-      { label: 'a(1)', latex: 'a(1)' },
-      { label: 'a(t)', latex: 'a(t)' },
-      { label: 'a(n)', latex: 'a(n)' },
-    ],
-  },
-  {
-    title: '주요 관계식',
-    items: [
-      { label: 'v = 1/(1+i)',  latex: 'v = \\dfrac{1}{1+i}' },
-      { label: 'd = iv',       latex: 'd = iv' },
-      { label: 'd = 1-v',      latex: 'd = 1-v' },
-      { label: 'i = e^δ - 1',  latex: 'i = e^{\\delta}-1' },
-      { label: 'a_n| 공식',    latex: 'a_{\\overline{n}|} = \\dfrac{1-v^n}{i}' },
-      { label: 'ä_n| 공식',    latex: '\\ddot{a}_{\\overline{n}|} = \\dfrac{1-v^n}{d}' },
-      { label: 'ä = a(1+i)',   latex: '\\ddot{a}_{\\overline{n}|} = a_{\\overline{n}|}(1+i)' },
-    ],
-  },
-  {
     title: '기말급 연금 (Immediate)',
     items: [
       { label: '기말급 연금 현가',        latex: 'a_{\\overline{n}|}' },
       { label: '기말급 연금 종가',        latex: 's_{\\overline{n}|}' },
       { label: '기말급 영구연금 현가',    latex: 'a_{\\overline{\\infty}|}' },
       { label: '기말급 연금 현가 (분기)', latex: 'a^{(m)}_{\\overline{n}|}' },
+      { label: 'a_n| 공식',              latex: 'a_{\\overline{n}|} = \\dfrac{1-v^n}{i}' },
     ],
   },
   {
@@ -81,6 +80,8 @@ const SYMBOL_GROUPS: { title: string; items: { label: string; latex: string }[] 
       { label: '기시급 연금 종가',        latex: '\\ddot{s}_{\\overline{n}|}' },
       { label: '기시급 영구연금 현가',    latex: '\\ddot{a}_{\\overline{\\infty}|}' },
       { label: '기시급 연금 현가 (분기)', latex: '\\ddot{a}^{(m)}_{\\overline{n}|}' },
+      { label: 'ä_n| 공식',              latex: '\\ddot{a}_{\\overline{n}|} = \\dfrac{1-v^n}{d}' },
+      { label: 'ä = a(1+i)',             latex: '\\ddot{a}_{\\overline{n}|} = a_{\\overline{n}|}(1+i)' },
     ],
   },
   {
