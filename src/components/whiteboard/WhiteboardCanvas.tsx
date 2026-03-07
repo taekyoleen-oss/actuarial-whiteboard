@@ -100,14 +100,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       const upperCanvas = canvas.upperCanvasEl
       upperCanvasRef.current = upperCanvas
 
-      // ── 포인터 필터 — document capture phase에 등록 ──────────────────────
-      // Fabric.js는 upperCanvasEl(target)에 등록하므로 target 단계에서 실행됨.
-      // document capture는 target 단계보다 반드시 먼저 실행되어 Fabric에
-      // 이벤트가 도달하기 전에 차단할 수 있다.
+      // ── 포인터 필터 — upperCanvasEl capture phase에 직접 등록 ──────────────
+      // Fabric.js v6는 upperCanvasEl에 bubble phase로 등록하므로
+      // 우리가 capture: true 로 같은 엘리먼트에 등록하면 항상 먼저 실행됨.
+      // document 레벨 등록 + target 비교보다 훨씬 안정적으로 차단 가능.
       const filterPointer = (e: PointerEvent) => {
-        // 우리 캔버스가 타겟이 아니면 무시
-        if (e.target !== upperCanvasRef.current) return
-
         // ── TOUCH: first-touch-wins palm rejection ────────────────────────
         // 정전식 스타일러스는 pointerType='touch'로 보고됨 → 손바닥도 동일.
         // 먼저 닿은 포인터를 스타일러스로 간주하고, 동시에 생기는
@@ -152,10 +149,10 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
           (resolvedType === 'touch' && !allowTouchRef.current)
         if (blocked) { e.preventDefault(); e.stopImmediatePropagation() }
       }
-      document.addEventListener('pointerdown',   filterPointer, { capture: true })
-      document.addEventListener('pointermove',   filterPointer, { capture: true })
-      document.addEventListener('pointerup',     filterPointer, { capture: true })
-      document.addEventListener('pointercancel', filterPointer, { capture: true })
+      upperCanvas.addEventListener('pointerdown',   filterPointer, { capture: true })
+      upperCanvas.addEventListener('pointermove',   filterPointer, { capture: true })
+      upperCanvas.addEventListener('pointerup',     filterPointer, { capture: true })
+      upperCanvas.addEventListener('pointercancel', filterPointer, { capture: true })
       pointerBlockerRef.current = filterPointer
 
       canvas.on('path:created', () => {
@@ -190,11 +187,12 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         window.removeEventListener('keydown', keyDownRef.current)
         keyDownRef.current = null
       }
-      if (pointerBlockerRef.current) {
-        document.removeEventListener('pointerdown',   pointerBlockerRef.current as EventListener, { capture: true })
-        document.removeEventListener('pointermove',   pointerBlockerRef.current as EventListener, { capture: true })
-        document.removeEventListener('pointerup',     pointerBlockerRef.current as EventListener, { capture: true })
-        document.removeEventListener('pointercancel', pointerBlockerRef.current as EventListener, { capture: true })
+      if (pointerBlockerRef.current && upperCanvasRef.current) {
+        const uc = upperCanvasRef.current
+        uc.removeEventListener('pointerdown',   pointerBlockerRef.current as EventListener, { capture: true })
+        uc.removeEventListener('pointermove',   pointerBlockerRef.current as EventListener, { capture: true })
+        uc.removeEventListener('pointerup',     pointerBlockerRef.current as EventListener, { capture: true })
+        uc.removeEventListener('pointercancel', pointerBlockerRef.current as EventListener, { capture: true })
         pointerBlockerRef.current = null
       }
       upperCanvasRef.current = null
