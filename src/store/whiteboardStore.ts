@@ -32,6 +32,7 @@ interface WhiteboardStore {
   allowPen: boolean
   allowTouch: boolean
   recognizeMode: 'formula' | 'text'
+  isRecognitionEnabled: boolean
   clipboardJSON: string | null
 
   setTool: (tool: DrawingTool) => void
@@ -56,6 +57,7 @@ interface WhiteboardStore {
   setAllowPen: (v: boolean) => void
   setAllowTouch: (v: boolean) => void
   setRecognizeMode: (mode: 'formula' | 'text') => void
+  setIsRecognitionEnabled: (v: boolean) => void
   setClipboardJSON: (json: string | null) => void
 
   getHexColor: () => string
@@ -84,6 +86,7 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   allowPen: true,
   allowTouch: false,
   recognizeMode: 'formula',
+  isRecognitionEnabled: false,
   clipboardJSON: null,
 
   setTool: (tool) => set({ tool }),
@@ -108,6 +111,7 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   setAllowPen: (allowPen) => set({ allowPen }),
   setAllowTouch: (allowTouch) => set({ allowTouch }),
   setRecognizeMode: (recognizeMode) => set({ recognizeMode }),
+  setIsRecognitionEnabled: (isRecognitionEnabled) => set({ isRecognitionEnabled }),
   setClipboardJSON: (clipboardJSON) => set({ clipboardJSON }),
 
   getHexColor: () => PEN_COLORS[get().color],
