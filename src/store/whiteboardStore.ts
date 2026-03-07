@@ -28,6 +28,11 @@ interface WhiteboardStore {
   numberLineStart: string
   numberLineEnd: string
   pendingSymbolLatex: string | null
+  allowMouse: boolean
+  allowPen: boolean
+  allowTouch: boolean
+  recognizeMode: 'formula' | 'text'
+  clipboardJSON: string | null
 
   setTool: (tool: DrawingTool) => void
   setColor: (color: PenColor) => void
@@ -47,6 +52,11 @@ interface WhiteboardStore {
   setNumberLineStart: (s: string) => void
   setNumberLineEnd: (s: string) => void
   setPendingSymbolLatex: (latex: string | null) => void
+  setAllowMouse: (v: boolean) => void
+  setAllowPen: (v: boolean) => void
+  setAllowTouch: (v: boolean) => void
+  setRecognizeMode: (mode: 'formula' | 'text') => void
+  setClipboardJSON: (json: string | null) => void
 
   getHexColor: () => string
 }
@@ -70,6 +80,11 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   numberLineStart: '0',
   numberLineEnd: '10',
   pendingSymbolLatex: null,
+  allowMouse: true,
+  allowPen: true,
+  allowTouch: false,
+  recognizeMode: 'formula',
+  clipboardJSON: null,
 
   setTool: (tool) => set({ tool }),
   setColor: (color) => set({ color }),
@@ -89,6 +104,11 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   setNumberLineStart: (numberLineStart) => set({ numberLineStart }),
   setNumberLineEnd: (numberLineEnd) => set({ numberLineEnd }),
   setPendingSymbolLatex: (pendingSymbolLatex) => set({ pendingSymbolLatex }),
+  setAllowMouse: (allowMouse) => set({ allowMouse }),
+  setAllowPen: (allowPen) => set({ allowPen }),
+  setAllowTouch: (allowTouch) => set({ allowTouch }),
+  setRecognizeMode: (recognizeMode) => set({ recognizeMode }),
+  setClipboardJSON: (clipboardJSON) => set({ clipboardJSON }),
 
   getHexColor: () => PEN_COLORS[get().color],
 }))

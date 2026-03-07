@@ -1,8 +1,8 @@
-export async function recognizeHandwriting(imageBase64: string): Promise<string> {
+export async function recognizeHandwriting(imageBase64: string, mode: 'formula' | 'text' = 'formula'): Promise<string> {
   const response = await fetch('/api/handwriting', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64 }),
+    body: JSON.stringify({ imageBase64, mode }),
   })
 
   if (!response.ok) {

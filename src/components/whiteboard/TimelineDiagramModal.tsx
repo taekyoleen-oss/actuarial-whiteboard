@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function TimelineDiagramModal({ getCanvas }: Props) {
-  const { isTimelineModalOpen, toggleTimelineModal } = useWhiteboardStore()
+  const { isTimelineModalOpen, toggleTimelineModal, setTool } = useWhiteboardStore()
 
   const [type, setType] = useState<TimelineType>('insurance-period')
   const [startLabel, setStartLabel] = useState('x')
@@ -69,6 +69,7 @@ export default function TimelineDiagramModal({ getCanvas }: Props) {
     canvas.setActiveObject(group)
     canvas.requestRenderAll()
     toggleTimelineModal()
+    setTool('select')
   }
 
   const previewSVG = generateTimelineSVG({

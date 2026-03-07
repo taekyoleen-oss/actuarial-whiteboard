@@ -23,8 +23,9 @@ const WhiteboardCanvas = dynamic(() => import('@/components/whiteboard/Whiteboar
 const TimelineDiagramModal = dynamic(() => import('@/components/whiteboard/TimelineDiagramModal'), { ssr: false })
 const KaTeXInputModal = dynamic(() => import('@/components/whiteboard/KaTeXInputModal'), { ssr: false })
 
-// Undo history per page
+// Undo/Redo history per page
 const undoStacks = new Map<string, string[]>()
+const redoStacks = new Map<string, string[]>()
 const MAX_UNDO = 50
 
 export default function Home() {
@@ -39,6 +40,8 @@ export default function Home() {
 
   const [currentBoard, setCurrentBoard] = useState<LocalBoard | null>(null)
   const [isSymbolPanelOpen, setIsSymbolPanelOpen] = useState(false)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   const { boards, refresh: refreshBoards, remove: removeBoard } = useLocalBoards()
 
   // Initialize with a default board
@@ -71,6 +74,13 @@ export default function Home() {
     setTotalPages(pages.length)
   }, [currentIndex, pages.length, setCurrentPageIndex, setTotalPages])
 
+  // Sync undo/redo button state when page changes
+  useEffect(() => {
+    const pageId = pages[currentIndex]?.id
+    if (pageId) syncUndoRedo(pageId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, pages])
+
   // Load last board on mount
   useEffect(() => {
     async function loadLast() {
@@ -88,6 +98,7 @@ export default function Home() {
     const canvas = getCanvas()
     if (!canvas) return
     undoStacks.clear()
+    redoStacks.clear()
     setCurrentBoard(board)
     setBoardName(board.name)
     setPages(board.pages)
@@ -100,6 +111,7 @@ export default function Home() {
       const pageId = page.id
       if (!undoStacks.has(pageId)) undoStacks.set(pageId, [])
       undoStacks.get(pageId)!.push(JSON.stringify(canvas.toJSON()))
+      syncUndoRedo(pageId)
     }
     useWhiteboardStore.getState().setCurrentPageIndex(pageIdx)
   }
@@ -108,34 +120,58 @@ export default function Home() {
     const canvas = getCanvas()
     if (!canvas) return
     undoStacks.clear()
+    redoStacks.clear()
     canvas.clear()
     canvas.backgroundColor = '#ffffff'
     canvas.requestRenderAll()
     const newPage = createEmptyPage(0)
+    // 새 보드의 초기 빈 상태를 스택에 등록
+    undoStacks.set(newPage.id, [JSON.stringify(canvas.toJSON())])
     setPages([newPage])
     setCurrentBoard(null)
     setBoardName(null)
     setSavedAt(null)
     useWhiteboardStore.getState().setCurrentPageIndex(0)
+    syncUndoRedo(newPage.id)
   }
 
-  // Undo — stack stores states after each action; pop current then restore previous
+  function syncUndoRedo(pageId: string) {
+    // canUndo: 스택에 초기 상태 + 최소 1개의 행동이 있어야 활성화 (> 1)
+    setCanUndo((undoStacks.get(pageId)?.length ?? 0) > 1)
+    setCanRedo((redoStacks.get(pageId)?.length ?? 0) > 0)
+  }
+
+  // Undo — pop current state into redoStack, then restore previous
   function handleUndo() {
     const canvas = getCanvas()
     if (!canvas) return
     const pageId = pages[currentIndex]?.id
     if (!pageId) return
     const stack = undoStacks.get(pageId)
-    if (!stack || stack.length === 0) return
-    stack.pop()  // discard latest (current) state
-    if (stack.length > 0) {
-      const prev = stack[stack.length - 1]
-      canvas.loadFromJSON(JSON.parse(prev)).then(() => canvas.requestRenderAll())
-    } else {
-      canvas.clear()
-      canvas.backgroundColor = '#ffffff'
-      canvas.requestRenderAll()
-    }
+    // 스택에 초기 상태만 있거나 비어있으면 더 이상 뒤로 갈 수 없음
+    if (!stack || stack.length <= 1) return
+    const current = stack.pop()!  // save current state for redo
+    if (!redoStacks.has(pageId)) redoStacks.set(pageId, [])
+    redoStacks.get(pageId)!.push(current)
+    // stack.length >= 1 이 보장됨 (위에서 <= 1 체크)
+    const prev = stack[stack.length - 1]
+    canvas.loadFromJSON(JSON.parse(prev)).then(() => canvas.requestRenderAll())
+    syncUndoRedo(pageId)
+  }
+
+  // Redo — pop from redoStack, push back to undoStack, restore state
+  function handleRedo() {
+    const canvas = getCanvas()
+    if (!canvas) return
+    const pageId = pages[currentIndex]?.id
+    if (!pageId) return
+    const redo = redoStacks.get(pageId)
+    if (!redo || redo.length === 0) return
+    const next = redo.pop()!
+    if (!undoStacks.has(pageId)) undoStacks.set(pageId, [])
+    undoStacks.get(pageId)!.push(next)
+    canvas.loadFromJSON(JSON.parse(next)).then(() => canvas.requestRenderAll())
+    syncUndoRedo(pageId)
   }
 
   function handleStrokeEnd() {
@@ -147,6 +183,9 @@ export default function Home() {
     const stack = undoStacks.get(pageId)!
     if (stack.length >= MAX_UNDO) stack.shift()
     stack.push(JSON.stringify(canvas.toJSON()))
+    // New action invalidates redo history
+    redoStacks.set(pageId, [])
+    syncUndoRedo(pageId)
     scheduleAutoSave()
   }
 
@@ -210,7 +249,8 @@ export default function Home() {
         setTool('pen')
         return
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); handleUndo(); return }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); return }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleRedo(); return }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); doSave(); return }
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); handleNewBoard(); return }
       if ((e.metaKey || e.ctrlKey) && e.key === 'm') { e.preventDefault(); addPage(); return }
@@ -261,6 +301,9 @@ export default function Home() {
       {/* Top toolbar */}
       <TopToolbar
         onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
         onSave={doSave}
         onStrokeEnd={handleStrokeEnd}
         getCanvas={getCanvas}

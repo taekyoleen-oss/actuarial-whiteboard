@@ -204,9 +204,10 @@ export function generateNumberLineSVG(startStr: string, endStr: string): string 
   const isStartInf = startStr.trim() === '-'
   const isEndInf = endStr.trim() === '-'
   const isEndN = endStr.trim().toLowerCase() === 'n'
+  const isEndT = endStr.trim().toLowerCase() === 't'
 
   const startNum = isStartInf ? 0 : (parseInt(startStr) || 0)
-  const endNum = (isEndInf || isEndN) ? startNum + 10 : (parseInt(endStr) || 10)
+  const endNum = (isEndInf || isEndN || isEndT) ? startNum + 10 : (parseInt(endStr) || 10)
 
   // Determine label arrays
   let leftLabels: string[] = []
@@ -231,6 +232,10 @@ export function generateNumberLineSVG(startStr: string, endStr: string): string 
   } else if (isEndN) {
     leftLabels = [String(startNum), String(startNum + 1), String(startNum + 2)]
     rightLabels = ['n-2', 'n-1', 'n']
+    hasDots = true
+  } else if (isEndT) {
+    leftLabels = [String(startNum), String(startNum + 1), String(startNum + 2)]
+    rightLabels = ['t']
     hasDots = true
   } else {
     const range = endNum - startNum

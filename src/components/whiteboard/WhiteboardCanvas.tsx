@@ -4,6 +4,7 @@ import { useEffect, useRef, forwardRef, useImperativeHandle, useState } from 're
 import { useWhiteboardStore } from '@/store/whiteboardStore'
 import { recognizeHandwriting } from '@/lib/canvas/inkRecognition'
 import { generateArrowLineSVG, generateNumberLineSVG } from '@/lib/canvas/actuarialShapes'
+import { analyzePointer } from '@/lib/canvas/pointerDetect'
 
 export interface WhiteboardCanvasHandle {
   getCanvas: () => import('fabric').Canvas | null
@@ -20,13 +21,23 @@ const CANVAS_HEIGHT = 900
 const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSON, onStrokeEnd }, ref) => {
   const canvasElRef = useRef<HTMLCanvasElement>(null)
   const fabricRef = useRef<import('fabric').Canvas | null>(null)
-  const { tool, getHexColor, strokeWidth, eraserWidth, eraserMode, zoom, setZoom, setTool, numberLineStart, numberLineEnd, pendingSymbolLatex, setPendingSymbolLatex } = useWhiteboardStore()
+  const { tool, getHexColor, strokeWidth, eraserWidth, eraserMode, zoom, setZoom, setTool, numberLineStart, numberLineEnd, pendingSymbolLatex, setPendingSymbolLatex, allowMouse, allowPen, allowTouch, recognizeMode, clipboardJSON } = useWhiteboardStore()
   const isStylusing = useRef(false)
-  const keyDownRef = useRef<((e: KeyboardEvent) => void) | null>(null)
+  const allowMouseRef = useRef(allowMouse)
+  const allowPenRef   = useRef(allowPen)
+  const allowTouchRef = useRef(allowTouch)
+  const keyDownRef        = useRef<((e: KeyboardEvent) => void) | null>(null)
+  const pointerBlockerRef = useRef<((e: PointerEvent) => void) | null>(null)
+  const canvasContainerRef = useRef<HTMLCanvasElement | null>(null)
   const [isRecognizing, setIsRecognizing] = useState(false)
   // recognize mode state
   const recognizeStartRef = useRef<{ x: number; y: number } | null>(null)
   const recognizeRectRef = useRef<import('fabric').Rect | null>(null)
+
+  // Sync allow-flags into refs (init-effect 클로저가 항상 최신값 참조)
+  useEffect(() => { allowMouseRef.current = allowMouse }, [allowMouse])
+  useEffect(() => { allowPenRef.current   = allowPen   }, [allowPen])
+  useEffect(() => { allowTouchRef.current = allowTouch }, [allowTouch])
 
   // Ref to always call the latest onStrokeEnd — prevents stale closure in init effect
   const onStrokeEndRef = useRef(onStrokeEnd)
@@ -81,22 +92,34 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         canvas.requestRenderAll()
       }
 
-      // Palm rejection
-      canvas.on('mouse:down', (e) => {
-        const ne = e.e as PointerEvent
-        if (ne.pointerType === 'pen') isStylusing.current = true
-        if (ne.pointerType === 'touch' && isStylusing.current) {
-          e.e.preventDefault()
-          e.e.stopPropagation()
+      // 입력 허용 게이트 — canvas.upperCanvasEl 캡처 단계 등록
+      // Fabric 리스너보다 먼저 실행 → 차단된 입력은 Fabric에 전혀 도달하지 않음
+      // analyzePointer: tilt ≥ 1° → pen(score 70+), tilt = 0° → touch(score ≤ 30)
+      const upperCanvas = canvas.upperCanvasEl
+      const filterPointer = (e: PointerEvent) => {
+        if (e.type === 'pointerdown') {
+          // Palm rejection: active digitizer pen
+          if (e.pointerType === 'pen') isStylusing.current = true
+          // Palm rejection: capacitive stylus (pointerType='touch') during pen use
+          if (e.pointerType === 'touch' && isStylusing.current) {
+            e.preventDefault(); e.stopImmediatePropagation(); return
+          }
         }
-      })
-
-      canvas.on('mouse:up', (e) => {
-        const ne = e.e as PointerEvent
-        if (ne.pointerType === 'pen') {
+        if (e.type === 'pointerup' && e.pointerType === 'pen') {
           setTimeout(() => { isStylusing.current = false }, 200)
         }
-      })
+        const { resolvedType } = analyzePointer(e)
+        const blocked =
+          (resolvedType === 'pen'   && !allowPenRef.current)   ||
+          (resolvedType === 'mouse' && !allowMouseRef.current) ||
+          (resolvedType === 'touch' && !allowTouchRef.current)
+        if (blocked) { e.preventDefault(); e.stopImmediatePropagation() }
+      }
+      upperCanvas.addEventListener('pointerdown', filterPointer, { capture: true })
+      upperCanvas.addEventListener('pointermove', filterPointer, { capture: true })
+      upperCanvas.addEventListener('pointerup',   filterPointer, { capture: true })
+      pointerBlockerRef.current = filterPointer
+      canvasContainerRef.current = upperCanvas
 
       canvas.on('path:created', () => {
         onStrokeEndRef.current?.()
@@ -130,6 +153,13 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         window.removeEventListener('keydown', keyDownRef.current)
         keyDownRef.current = null
       }
+      if (pointerBlockerRef.current && canvasContainerRef.current) {
+        canvasContainerRef.current.removeEventListener('pointerdown', pointerBlockerRef.current as EventListener, { capture: true })
+        canvasContainerRef.current.removeEventListener('pointermove', pointerBlockerRef.current as EventListener, { capture: true })
+        canvasContainerRef.current.removeEventListener('pointerup',   pointerBlockerRef.current as EventListener, { capture: true })
+        pointerBlockerRef.current = null
+      }
+      canvasContainerRef.current = null
       // Dispose whichever canvas instance exists
       const toDispose = canvas ?? fabricRef.current
       if (toDispose) toDispose.dispose()
@@ -176,10 +206,10 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         canvas!.defaultCursor = 'pointer'
         canvas!.hoverCursor = 'grab'
         canvas!.moveCursor = 'grabbing'
-      } else if (tool === 'recognize' || tool === 'arrow-line' || tool === 'time-line' || tool === 'place-symbol') {
+      } else if (tool === 'recognize' || tool === 'arrow-line' || tool === 'time-line' || tool === 'place-symbol' || tool === 'paste') {
         canvas!.isDrawingMode = false
         canvas!.selection = false
-        canvas!.defaultCursor = tool === 'place-symbol' ? 'crosshair' : tool === 'recognize' ? 'crosshair' : 'copy'
+        canvas!.defaultCursor = tool === 'paste' ? 'copy' : tool === 'place-symbol' ? 'crosshair' : tool === 'recognize' ? 'crosshair' : 'copy'
       }
     }
 
@@ -214,25 +244,65 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
 
       canvas.remove(eraserPath, ...toRemove)
       canvas.requestRenderAll()
-    }
-
-    // Double-click any object to delete it with eraser
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function handleDblClick(e: any) {
-      if (!canvas || !e.target) return
-      canvas.remove(e.target)
-      canvas.discardActiveObject()
-      canvas.requestRenderAll()
       onStrokeEndRef.current?.()
     }
 
+    // 더블탭으로 개체 삭제 — 마우스·펜 모두 지원
+    // pointerdown/move/up 직접 추적: 움직임이 적은 두 번의 탭을 더블탭으로 인식
+    const DOUBLE_TAP_DELAY = 400   // ms
+    const DOUBLE_TAP_DIST  = 30    // px (두 탭 사이 최대 거리)
+    const TAP_MOVE_MAX     = 15    // px (탭 중 최대 이동량 — 초과 시 획으로 판단)
+    const tapState = { lastTime: 0, lastX: 0, lastY: 0, pressX: 0, pressY: 0, moved: false }
+
+    function onTapDown(e: PointerEvent) {
+      tapState.pressX = e.clientX
+      tapState.pressY = e.clientY
+      tapState.moved  = false
+    }
+
+    function onTapMove(e: PointerEvent) {
+      if (e.buttons === 0) return
+      const dx = e.clientX - tapState.pressX
+      const dy = e.clientY - tapState.pressY
+      if (Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_MAX) tapState.moved = true
+    }
+
+    function onTapUp(e: PointerEvent) {
+      if (!canvas) return
+      if (tapState.moved) { tapState.lastTime = 0; return }  // 획 → 초기화
+
+      const now = Date.now()
+      const dx  = e.clientX - tapState.lastX
+      const dy  = e.clientY - tapState.lastY
+      if (now - tapState.lastTime < DOUBLE_TAP_DELAY && Math.sqrt(dx * dx + dy * dy) < DOUBLE_TAP_DIST) {
+        // 더블탭 확정 → 해당 위치의 개체 삭제
+        const pointer = canvas.getPointer(e)
+        const objects = canvas.getObjects()
+        for (let i = objects.length - 1; i >= 0; i--) {
+          if (objects[i].containsPoint(pointer)) {
+            canvas.remove(objects[i])
+            canvas.requestRenderAll()
+            onStrokeEndRef.current?.()
+            break
+          }
+        }
+        tapState.lastTime = 0  // 연속 트리거 방지
+      } else {
+        tapState.lastTime = now
+        tapState.lastX    = e.clientX
+        tapState.lastY    = e.clientY
+      }
+    }
+
     canvas.on('path:created', handlePathCreated as (e: Record<string, unknown>) => void)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    canvas.on('mouse:dblclick', handleDblClick as any)
+    canvas.upperCanvasEl.addEventListener('pointerdown', onTapDown)
+    canvas.upperCanvasEl.addEventListener('pointermove', onTapMove)
+    canvas.upperCanvasEl.addEventListener('pointerup',   onTapUp)
     return () => {
       canvas.off('path:created', handlePathCreated as (e: Record<string, unknown>) => void)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      canvas.off('mouse:dblclick', handleDblClick as any)
+      canvas.upperCanvasEl?.removeEventListener('pointerdown', onTapDown)
+      canvas.upperCanvasEl?.removeEventListener('pointermove', onTapMove)
+      canvas.upperCanvasEl?.removeEventListener('pointerup',   onTapUp)
     }
   }, [tool, eraserMode])
 
@@ -305,7 +375,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
           height: height * zoom,
         })
 
-        const text = await recognizeHandwriting(dataURL)
+        const text = await recognizeHandwriting(dataURL, recognizeMode)
         if (text.trim()) {
           const { Textbox } = await import('fabric')
           const tb = new Textbox(text, {
@@ -349,7 +419,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       }
       recognizeStartRef.current = null
     }
-  }, [tool, setTool])
+  }, [tool, setTool, recognizeMode])
 
   // Arrow-line: drag to determine length, then place SVG with period labels
   useEffect(() => {
@@ -503,6 +573,48 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, pendingSymbolLatex, setTool, setPendingSymbolLatex])
 
+  // Paste mode: click to place copied objects at cursor position
+  useEffect(() => {
+    const canvas = fabricRef.current
+    if (!canvas || tool !== 'paste' || !clipboardJSON) return
+
+    async function onMouseDown(e: { pointer: { x: number; y: number } }) {
+      if (!canvas || !clipboardJSON) return
+      const { x, y } = e.pointer
+
+      const { util } = await import('fabric')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const objects: import('fabric').FabricObject[] = await (util as any).enlivenObjects(JSON.parse(clipboardJSON))
+      if (objects.length === 0) return
+
+      // Compute bounding box center of the copied objects
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const obj of objects) {
+        const b = obj.getBoundingRect()
+        minX = Math.min(minX, b.left)
+        minY = Math.min(minY, b.top)
+        maxX = Math.max(maxX, b.left + b.width)
+        maxY = Math.max(maxY, b.top + b.height)
+      }
+      const dx = x - (minX + maxX) / 2
+      const dy = y - (minY + maxY) / 2
+
+      for (const obj of objects) {
+        obj.set({ left: (obj.left ?? 0) + dx, top: (obj.top ?? 0) + dy })
+        obj.setCoords()
+        canvas.add(obj)
+      }
+      canvas.requestRenderAll()
+      onStrokeEndRef.current?.()
+      setTool('select')
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    canvas.on('mouse:down', onMouseDown as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return () => canvas.off('mouse:down', onMouseDown as any)
+  }, [tool, clipboardJSON, setTool])
+
   // Zoom
   useEffect(() => {
     const canvas = fabricRef.current
@@ -526,6 +638,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
               : tool === 'select' ? 'pointer'
               : tool === 'recognize' ? 'crosshair'
               : tool === 'place-symbol' ? 'crosshair'
+              : tool === 'paste' ? 'copy'
               : (tool === 'arrow-line' || tool === 'time-line') ? 'copy'
               : 'none',  // pen/eraser: Fabric.js freeDrawingCursor 사용
           }}

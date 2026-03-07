@@ -10,6 +10,9 @@ import { exportCurrentPageAsPNG } from '@/lib/canvas/exportUtils'
 
 interface TopToolbarProps {
   onUndo: () => void
+  onRedo: () => void
+  canUndo: boolean
+  canRedo: boolean
   onSave: () => void
   onStrokeEnd: () => void
   getCanvas: () => FabricCanvas | null
@@ -28,7 +31,7 @@ const COLORS = [
 
 const WIDTHS = [2, 4, 8]
 
-export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel, onNewBoard, onOpenBoards, onRenameBoard }: TopToolbarProps) {
+export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel, onNewBoard, onOpenBoards, onRenameBoard }: TopToolbarProps) {
   const [showClearMenu, setShowClearMenu] = useState(false)
   const [clearMenuPos, setClearMenuPos] = useState<{ top: number; left: number } | null>(null)
   const clearBtnRef = useRef<HTMLDivElement>(null)
@@ -53,13 +56,28 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
     return () => { el.removeEventListener('scroll', checkScroll); ro.disconnect() }
   }, [])
 
+
   const {
     tool, setTool, color, setColor, strokeWidth, setStrokeWidth,
     eraserWidth, setEraserWidth,
     toggleTimelineModal, toggleKaTeXModal, toggleCalculator,
     boardName, savedAt, zoom, setZoom,
     numberLineStart, numberLineEnd, setNumberLineStart, setNumberLineEnd,
+    allowMouse, setAllowMouse, allowPen, setAllowPen, allowTouch, setAllowTouch,
+    recognizeMode, setRecognizeMode,
+    clipboardJSON, setClipboardJSON,
   } = useWhiteboardStore()
+
+  function handleCopy() {
+    const canvas = getCanvas()
+    if (!canvas) return
+    const active = canvas.getActiveObjects()
+    if (active.length === 0) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const serialized = active.map((obj) => (obj as any).toObject())
+    setClipboardJSON(JSON.stringify(serialized))
+    setTool('paste')
+  }
 
   const saveTime = savedAt ? new Date(savedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : null
 
@@ -123,7 +141,7 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
         </Tooltip>
       </div>
 
-      {/* 선택 도구 */}
+      {/* 선택 도구 + 복사 */}
       <div className="flex items-center gap-1 pr-2 border-r border-gray-200">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -138,6 +156,36 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
           </TooltipTrigger>
           <TooltipContent>개체 선택·이동·크기 조절 — S</TooltipContent>
         </Tooltip>
+        {tool === 'paste' ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTool('select')}
+                className="h-8 px-2 text-xs text-orange-600 border-orange-300 hover:bg-orange-50"
+              >
+                붙여넣기 취소
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>붙여넣기 모드 취소 (Esc)</TooltipContent>
+          </Tooltip>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopy}
+                disabled={tool !== 'select'}
+                className={`h-8 px-2 text-xs ${clipboardJSON ? 'text-blue-600' : ''}`}
+              >
+                복사
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>선택한 개체 복사 후 클릭 위치에 붙여넣기</TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* 펜 — 두 줄: 색상 / 굵기 */}
@@ -175,6 +223,28 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
           />
           <span className="text-[10px] text-gray-400 w-4">{strokeWidth}</span>
         </div>
+      </div>
+
+      {/* 입력 허용 체크박스 */}
+      <div className="flex flex-col justify-center gap-0.5 px-3 border-r border-gray-200 py-1">
+        <span className="text-[10px] text-gray-400 leading-none mb-0.5 whitespace-nowrap">입력 허용</span>
+        {([
+          { label: '마우스', checked: allowMouse, onChange: setAllowMouse },
+          { label: '펜',     checked: allowPen,   onChange: setAllowPen   },
+          { label: '손',     checked: allowTouch, onChange: setAllowTouch },
+        ] as const).map(({ label, checked, onChange }) => (
+          <label key={label} className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => onChange(e.target.checked)}
+              className="w-3 h-3 accent-blue-600 cursor-pointer flex-shrink-0"
+            />
+            <span className={`text-[11px] whitespace-nowrap ${checked ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
+              {label}
+            </span>
+          </label>
+        ))}
       </div>
 
       {/* 지우개 — 두 줄: 버튼+전체지우기 / 크기 */}
@@ -249,15 +319,23 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
         </div>
       </div>{/* end 지우개 2행 섹션 */}
 
-      {/* 실행취소 */}
+      {/* 뒤로 / 앞으로 */}
       <div className="flex items-center gap-1 px-2 border-r border-gray-200">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="sm" onClick={onUndo} className="h-8 px-2 text-xs">
-              ↩ 실행취소
+            <Button variant="ghost" size="sm" onClick={onUndo} disabled={!canUndo} className="h-8 px-2 text-xs disabled:opacity-30">
+              ↩ 뒤로
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Ctrl+Z</TooltipContent>
+          <TooltipContent>뒤로 (Ctrl+Z)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="sm" onClick={onRedo} disabled={!canRedo} className="h-8 px-2 text-xs disabled:opacity-30">
+              앞으로 ↪
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>앞으로 (Ctrl+Y / Ctrl+Shift+Z)</TooltipContent>
         </Tooltip>
       </div>
 
@@ -334,36 +412,62 @@ export default function TopToolbar({ onUndo, onSave, onStrokeEnd, getCanvas, isS
       </div>
 
       {/* 필기 인식 */}
-      <div className="flex items-center gap-1 px-2 border-r border-gray-200">
-        {tool === 'recognize' ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setTool('pen')}
-                className="h-8 px-2 text-xs text-red-600 border-red-300 hover:bg-red-50"
-              >
-                취소 (Esc)
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>인식 모드 취소 → 펜으로 복귀</TooltipContent>
-          </Tooltip>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setTool('recognize')}
-                className="h-8 px-2 text-xs font-medium text-purple-700 hover:text-purple-800"
-              >
-                인식 변환
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>박스를 드래그하여 필기를 텍스트로 변환</TooltipContent>
-          </Tooltip>
-        )}
+      <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
+        {/* 1행: 인식 변환 버튼 */}
+        <div className="flex items-center gap-1">
+          {tool === 'recognize' ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTool('pen')}
+                  className="h-6 px-2 text-xs text-red-600 border-red-300 hover:bg-red-50"
+                >
+                  취소 (Esc)
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>인식 모드 취소 → 펜으로 복귀</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTool('recognize')}
+                  className="h-6 px-2 text-xs font-medium text-purple-700 hover:text-purple-800"
+                >
+                  인식 변환
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>박스를 드래그하여 필기를 텍스트로 변환</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+        {/* 2행: 수식 / 텍스트 모드 선택 */}
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => setRecognizeMode('formula')}
+            className={`h-5 px-1.5 rounded text-[10px] border transition-colors ${
+              recognizeMode === 'formula'
+                ? 'bg-purple-100 border-purple-400 text-purple-700 font-medium'
+                : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-300'
+            }`}
+          >
+            수식
+          </button>
+          <button
+            onClick={() => setRecognizeMode('text')}
+            className={`h-5 px-1.5 rounded text-[10px] border transition-colors ${
+              recognizeMode === 'text'
+                ? 'bg-purple-100 border-purple-400 text-purple-700 font-medium'
+                : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-300'
+            }`}
+          >
+            텍스트
+          </button>
+        </div>
       </div>
 
       {/* 계산기 */}
