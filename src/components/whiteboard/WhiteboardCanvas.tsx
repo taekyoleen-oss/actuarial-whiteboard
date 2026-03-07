@@ -102,14 +102,13 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       const upperCanvas = canvas.upperCanvasEl
       upperCanvasRef.current = upperCanvas
 
-      // ── 2차 방어: upperCanvasEl pointerdown에서 입력 타입 추적 ──────────────
-      // 터치 이벤트는 브라우저의 묵시적 pointer capture로 인해 pointermove/up이
-      // document capture를 우회함. 따라서 document capture만으로는 완전 차단 불가.
-      // path:created에서 입력 타입을 확인해 차단된 획을 즉시 제거하는 2차 방어 추가.
+      // ── window capture: 포인터 타입을 가장 먼저 기록 ────────────────────────
+      // Fabric.js가 ev.e를 MouseEvent로 변환하더라도 여기서 PointerEvent 원본을 잡음.
+      // FilteredPencilBrush.onMouseDown에서 이 값을 읽어 차단 여부 결정.
       const trackDrawType = (e: PointerEvent) => {
         lastDrawTypeRef.current = analyzePointer(e).resolvedType
       }
-      upperCanvas.addEventListener('pointerdown', trackDrawType)
+      window.addEventListener('pointerdown', trackDrawType, { capture: true })
       trackDrawTypeRef.current = trackDrawType
 
       // ── 1차 방어: document capture에서 pointerdown 차단 ──────────────────
@@ -222,8 +221,8 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         document.removeEventListener('pointercancel', pointerBlockerRef.current as EventListener, { capture: true })
         pointerBlockerRef.current = null
       }
-      if (trackDrawTypeRef.current && upperCanvasRef.current) {
-        upperCanvasRef.current.removeEventListener('pointerdown', trackDrawTypeRef.current as EventListener)
+      if (trackDrawTypeRef.current) {
+        window.removeEventListener('pointerdown', trackDrawTypeRef.current as EventListener, { capture: true })
         trackDrawTypeRef.current = null
       }
       upperCanvasRef.current = null
@@ -251,14 +250,15 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       class FilteredPencilBrush extends PencilBrush {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onMouseDown(pointer: any, ev: any) {
-          const e = ev?.e as PointerEvent | undefined
-          if (e && 'pointerType' in e) {
-            const { resolvedType } = analyzePointer(e)
+          // window capture에서 기록한 포인터 타입을 사용
+          // (Fabric이 ev.e를 MouseEvent로 변환하는 경우에도 원본 타입 보존)
+          const ptype = lastDrawTypeRef.current
+          if (ptype) {
             const { allowMouse: am, allowPen: ap, allowTouch: at } = useWhiteboardStore.getState()
             if (
-              (resolvedType === 'pen'   && !ap) ||
-              (resolvedType === 'mouse' && !am) ||
-              (resolvedType === 'touch' && !at)
+              (ptype === 'pen'   && !ap) ||
+              (ptype === 'mouse' && !am) ||
+              (ptype === 'touch' && !at)
             ) return  // 차단: super.onMouseDown 호출 안 함 → 획 시작 안 됨
           }
           super.onMouseDown(pointer, ev)
