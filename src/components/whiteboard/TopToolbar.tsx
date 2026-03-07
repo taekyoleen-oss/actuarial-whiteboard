@@ -436,7 +436,7 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
               onChange={(e) => setNumberLineEnd(e.target.value)}
               disabled={tool !== 'time-line'}
               className="w-9 h-5 border border-gray-300 rounded px-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-              placeholder="10"
+              placeholder="n"
             />
           </div>
         </div>

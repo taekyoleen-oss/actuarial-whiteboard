@@ -83,7 +83,7 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   isBoardNameDialogOpen: false,
   isSidebarOpen: false,
   numberLineStart: '0',
-  numberLineEnd: '10',
+  numberLineEnd: 'n',
   pendingSymbolLatex: null,
   allowMouse: true,
   allowPen: true,
