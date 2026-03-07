@@ -117,7 +117,7 @@ export function generateTimelineSVG(config: TimelineConfig): string {
  * range: Math.round((pixelWidth - 20) / TICK), 0이면 레이블 없음
  */
 export function generateArrowLineSVG(pixelWidth: number, range: number): string {
-  const TICK = 94   // 숫자선과 동일 간격
+  const TICK = 150  // 숫자선과 동일 간격
   const hasTicks = range >= 1
   const h = hasTicks ? 95 : 40
   const ay = 20
@@ -161,8 +161,8 @@ export function generateArrowLineSVG(pixelWidth: number, range: number): string 
   const lineEnd = x1 - ah
   const l0 = x0, l1 = x0 + TICK, l2 = x0 + 2 * TICK
   const r0 = x1, r1 = x1 - TICK, r2 = x1 - 2 * TICK   // r0 = 화살촉 = 마지막 눈금
-  const dotsX0 = l2 + 16
-  const dotsX1 = r2 - 16
+  const dotsX0 = l2 + 8
+  const dotsX1 = r2 - 8
 
   const ticksSVG = [
     tickSVG(l0, '0'), tickSVG(l1, '1'), tickSVG(l2, '2'),
@@ -197,7 +197,7 @@ export function generateArrowLineSVG(pixelWidth: number, range: number): string 
  *   end="-"    → 앞 3개 + ∞ 화살표
  */
 export function generateNumberLineSVG(startStr: string, endStr: string): string {
-  const TICK = 94    // tick spacing (px) — 1.3×
+  const TICK = 150   // tick spacing (px)
   const AY = 34     // arrowY
   const TH = 16     // tick half-height
   const AH = 13     // arrowhead length
@@ -276,7 +276,7 @@ export function generateNumberLineSVG(startStr: string, endStr: string): string 
   // Complex: left section + dots + right section
   const lCount = leftLabels.length
   const rCount = rightLabels.length
-  const DOTS_W = 94  // width of the dots section — 1.3×
+  const DOTS_W = 188  // width of the dots section
   const MARGIN = 47
 
   // X positions for left ticks

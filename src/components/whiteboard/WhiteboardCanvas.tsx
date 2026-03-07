@@ -514,7 +514,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
     const canvas = fabricRef.current
     if (!canvas || tool !== 'arrow-line') return
 
-    const TICK = 94
+    const TICK = 150
     const arrowStartRef = { current: null as { x: number; y: number } | null }
     let previewLine: import('fabric').Line | null = null
 
