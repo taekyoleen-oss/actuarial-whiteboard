@@ -17,6 +17,7 @@ import LeftSidebar from '@/components/whiteboard/LeftSidebar'
 import BoardNameDialog from '@/components/whiteboard/BoardNameDialog'
 import CalculatorPopup from '@/components/whiteboard/CalculatorPopup'
 import InterestSymbolPanel from '@/components/whiteboard/InterestSymbolPanel'
+import PointerDiagPanel from '@/components/whiteboard/PointerDiagPanel'
 
 // Dynamic import for canvas (no SSR)
 const WhiteboardCanvas = dynamic(() => import('@/components/whiteboard/WhiteboardCanvas'), { ssr: false })
@@ -40,6 +41,7 @@ export default function Home() {
 
   const [currentBoard, setCurrentBoard] = useState<LocalBoard | null>(null)
   const [isSymbolPanelOpen, setIsSymbolPanelOpen] = useState(false)
+  const [isPointerDiagOpen, setIsPointerDiagOpen] = useState(false)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const { boards, refresh: refreshBoards, remove: removeBoard } = useLocalBoards()
@@ -312,6 +314,8 @@ export default function Home() {
         onNewBoard={handleNewBoard}
         onOpenBoards={toggleSidebar}
         onRenameBoard={toggleBoardNameDialog}
+        isPointerDiagOpen={isPointerDiagOpen}
+        onTogglePointerDiag={() => setIsPointerDiagOpen(v => !v)}
       />
 
       {/* Sidebar toggle button */}
@@ -359,6 +363,7 @@ export default function Home() {
         onDuplicatePage={duplicatePage}
       />
 
+      {isPointerDiagOpen && <PointerDiagPanel onClose={() => setIsPointerDiagOpen(false)} />}
       <BoardNameDialog onConfirm={handleSaveWithName} />
       <CalculatorPopup />
       <TimelineDiagramModal getCanvas={getCanvas} />

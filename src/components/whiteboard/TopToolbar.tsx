@@ -21,6 +21,8 @@ interface TopToolbarProps {
   onNewBoard: () => void
   onOpenBoards: () => void
   onRenameBoard: () => void
+  isPointerDiagOpen: boolean
+  onTogglePointerDiag: () => void
 }
 
 const COLORS = [
@@ -31,7 +33,7 @@ const COLORS = [
 
 const WIDTHS = [2, 4, 8]
 
-export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel, onNewBoard, onOpenBoards, onRenameBoard }: TopToolbarProps) {
+export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel, onNewBoard, onOpenBoards, onRenameBoard, isPointerDiagOpen, onTogglePointerDiag }: TopToolbarProps) {
   const [showClearMenu, setShowClearMenu] = useState(false)
   const [clearMenuPos, setClearMenuPos] = useState<{ top: number; left: number } | null>(null)
   const clearBtnRef = useRef<HTMLDivElement>(null)
@@ -225,9 +227,26 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
         </div>
       </div>
 
-      {/* 입력 허용 체크박스 */}
+      {/* 입력 허용 체크박스 + 진단 버튼 */}
       <div className="flex flex-col justify-center gap-0.5 px-3 border-r border-gray-200 py-1">
-        <span className="text-[10px] text-gray-400 leading-none mb-0.5 whitespace-nowrap">입력 허용</span>
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-[10px] text-gray-400 leading-none whitespace-nowrap">입력 허용</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onTogglePointerDiag}
+                className={`ml-2 h-4 px-1.5 rounded text-[9px] font-medium border transition-colors ${
+                  isPointerDiagOpen
+                    ? 'bg-yellow-100 border-yellow-400 text-yellow-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-400'
+                }`}
+              >
+                진단
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>포인터 압력/기울기 실시간 진단 패널</TooltipContent>
+          </Tooltip>
+        </div>
         {([
           { label: '마우스', checked: allowMouse, onChange: setAllowMouse },
           { label: '펜',     checked: allowPen,   onChange: setAllowPen   },

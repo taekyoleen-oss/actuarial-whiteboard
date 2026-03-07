@@ -22,13 +22,15 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
   const canvasElRef = useRef<HTMLCanvasElement>(null)
   const fabricRef = useRef<import('fabric').Canvas | null>(null)
   const { tool, getHexColor, strokeWidth, eraserWidth, eraserMode, zoom, setZoom, setTool, numberLineStart, numberLineEnd, pendingSymbolLatex, setPendingSymbolLatex, allowMouse, allowPen, allowTouch, recognizeMode, clipboardJSON } = useWhiteboardStore()
-  const isStylusing = useRef(false)
+  const isStylusing       = useRef(false)
+  const primaryTouchIdRef = useRef<number | null>(null)   // first-touch-wins palm rejection
+  const blockedTouchIds   = useRef<Set<number>>(new Set())
   const allowMouseRef = useRef(allowMouse)
   const allowPenRef   = useRef(allowPen)
   const allowTouchRef = useRef(allowTouch)
   const keyDownRef        = useRef<((e: KeyboardEvent) => void) | null>(null)
   const pointerBlockerRef = useRef<((e: PointerEvent) => void) | null>(null)
-  const canvasContainerRef = useRef<HTMLCanvasElement | null>(null)
+  const upperCanvasRef    = useRef<HTMLCanvasElement | null>(null)   // target 비교용
   const [isRecognizing, setIsRecognizing] = useState(false)
   // recognize mode state
   const recognizeStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -96,18 +98,53 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       // Fabric 리스너보다 먼저 실행 → 차단된 입력은 Fabric에 전혀 도달하지 않음
       // analyzePointer: tilt ≥ 1° → pen(score 70+), tilt = 0° → touch(score ≤ 30)
       const upperCanvas = canvas.upperCanvasEl
+      upperCanvasRef.current = upperCanvas
+
+      // ── 포인터 필터 — document capture phase에 등록 ──────────────────────
+      // Fabric.js는 upperCanvasEl(target)에 등록하므로 target 단계에서 실행됨.
+      // document capture는 target 단계보다 반드시 먼저 실행되어 Fabric에
+      // 이벤트가 도달하기 전에 차단할 수 있다.
       const filterPointer = (e: PointerEvent) => {
+        // 우리 캔버스가 타겟이 아니면 무시
+        if (e.target !== upperCanvasRef.current) return
+
+        // ── TOUCH: first-touch-wins palm rejection ────────────────────────
+        // 정전식 스타일러스는 pointerType='touch'로 보고됨 → 손바닥도 동일.
+        // 먼저 닿은 포인터를 스타일러스로 간주하고, 동시에 생기는
+        // 추가 터치는 모두 손바닥으로 차단한다.
+        if (e.pointerType === 'touch') {
+          if (e.type === 'pointerdown') {
+            if (primaryTouchIdRef.current === null) {
+              primaryTouchIdRef.current = e.pointerId          // 첫 터치 = 스타일러스
+            } else {
+              blockedTouchIds.current.add(e.pointerId)         // 동시 터치 = 손바닥
+              e.preventDefault(); e.stopImmediatePropagation(); return
+            }
+          } else {
+            // pointermove / pointerup / pointercancel
+            if (blockedTouchIds.current.has(e.pointerId)) {
+              if (e.type !== 'pointermove') blockedTouchIds.current.delete(e.pointerId)
+              e.preventDefault(); e.stopImmediatePropagation(); return
+            }
+            if ((e.type === 'pointerup' || e.type === 'pointercancel') &&
+                e.pointerId === primaryTouchIdRef.current) {
+              primaryTouchIdRef.current = null                 // 스타일러스 들어올림
+            }
+          }
+        }
+
+        // ── PEN (active digitizer): 펜 사용 중 touch 차단 ──────────────
         if (e.type === 'pointerdown') {
-          // Palm rejection: active digitizer pen
           if (e.pointerType === 'pen') isStylusing.current = true
-          // Palm rejection: capacitive stylus (pointerType='touch') during pen use
           if (e.pointerType === 'touch' && isStylusing.current) {
             e.preventDefault(); e.stopImmediatePropagation(); return
           }
         }
-        if (e.type === 'pointerup' && e.pointerType === 'pen') {
+        if ((e.type === 'pointerup' || e.type === 'pointercancel') && e.pointerType === 'pen') {
           setTimeout(() => { isStylusing.current = false }, 200)
         }
+
+        // ── 입력 허용 플래그 ──────────────────────────────────────────────
         const { resolvedType } = analyzePointer(e)
         const blocked =
           (resolvedType === 'pen'   && !allowPenRef.current)   ||
@@ -115,11 +152,11 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
           (resolvedType === 'touch' && !allowTouchRef.current)
         if (blocked) { e.preventDefault(); e.stopImmediatePropagation() }
       }
-      upperCanvas.addEventListener('pointerdown', filterPointer, { capture: true })
-      upperCanvas.addEventListener('pointermove', filterPointer, { capture: true })
-      upperCanvas.addEventListener('pointerup',   filterPointer, { capture: true })
+      document.addEventListener('pointerdown',   filterPointer, { capture: true })
+      document.addEventListener('pointermove',   filterPointer, { capture: true })
+      document.addEventListener('pointerup',     filterPointer, { capture: true })
+      document.addEventListener('pointercancel', filterPointer, { capture: true })
       pointerBlockerRef.current = filterPointer
-      canvasContainerRef.current = upperCanvas
 
       canvas.on('path:created', () => {
         onStrokeEndRef.current?.()
@@ -153,13 +190,14 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         window.removeEventListener('keydown', keyDownRef.current)
         keyDownRef.current = null
       }
-      if (pointerBlockerRef.current && canvasContainerRef.current) {
-        canvasContainerRef.current.removeEventListener('pointerdown', pointerBlockerRef.current as EventListener, { capture: true })
-        canvasContainerRef.current.removeEventListener('pointermove', pointerBlockerRef.current as EventListener, { capture: true })
-        canvasContainerRef.current.removeEventListener('pointerup',   pointerBlockerRef.current as EventListener, { capture: true })
+      if (pointerBlockerRef.current) {
+        document.removeEventListener('pointerdown',   pointerBlockerRef.current as EventListener, { capture: true })
+        document.removeEventListener('pointermove',   pointerBlockerRef.current as EventListener, { capture: true })
+        document.removeEventListener('pointerup',     pointerBlockerRef.current as EventListener, { capture: true })
+        document.removeEventListener('pointercancel', pointerBlockerRef.current as EventListener, { capture: true })
         pointerBlockerRef.current = null
       }
-      canvasContainerRef.current = null
+      upperCanvasRef.current = null
       // Dispose whichever canvas instance exists
       const toDispose = canvas ?? fabricRef.current
       if (toDispose) toDispose.dispose()
