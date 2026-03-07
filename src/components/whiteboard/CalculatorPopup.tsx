@@ -24,7 +24,10 @@ export default function CalculatorPopup() {
   const [display, setDisplay] = useState('0')
   const [expr, setExpr] = useState('')
   const [isDragging, setIsDragging] = useState(false)
-  const [pos, setPos] = useState({ x: 20, y: 80 })
+  const [pos, setPos] = useState(() => ({
+    x: typeof window !== 'undefined' ? window.innerWidth - 460 : 900,
+    y: 80,
+  }))
   const dragOffset = useRef({ x: 0, y: 0 })
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {

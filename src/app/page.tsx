@@ -16,6 +16,7 @@ import TopToolbar from '@/components/whiteboard/TopToolbar'
 import LeftSidebar from '@/components/whiteboard/LeftSidebar'
 import BoardNameDialog from '@/components/whiteboard/BoardNameDialog'
 import CalculatorPopup from '@/components/whiteboard/CalculatorPopup'
+import JS40BCalculator from '@/components/whiteboard/JS40BCalculator'
 import InterestSymbolPanel from '@/components/whiteboard/InterestSymbolPanel'
 import PointerDiagPanel from '@/components/whiteboard/PointerDiagPanel'
 
@@ -366,6 +367,7 @@ export default function Home() {
       {isPointerDiagOpen && <PointerDiagPanel onClose={() => setIsPointerDiagOpen(false)} />}
       <BoardNameDialog onConfirm={handleSaveWithName} />
       <CalculatorPopup />
+      <JS40BCalculator />
       <TimelineDiagramModal getCanvas={getCanvas} />
       <KaTeXInputModal getCanvas={getCanvas} />
     </div>

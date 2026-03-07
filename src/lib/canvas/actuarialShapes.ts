@@ -133,9 +133,8 @@ export function generateArrowLineSVG(pixelWidth: number, range: number): string 
       `<text x="${x}" y="${ay + TH + 26}" text-anchor="middle" font-family="${FONT}" font-size="26" fill="#1A1A1A">${lbl}</text>`
   }
 
-  const lineEnd = x1 - ah
-
   if (!hasTicks) {
+    const lineEnd = x1 - ah
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${h}" viewBox="0 0 ${pixelWidth} ${h}">
       <line x1="${x0}" y1="${ay}" x2="${lineEnd}" y2="${ay}" stroke="#1A1A1A" stroke-width="2.5"/>
       <polygon points="${x1},${ay} ${lineEnd},${ay - aw} ${lineEnd},${ay + aw}" fill="#1A1A1A"/>
@@ -143,20 +142,25 @@ export function generateArrowLineSVG(pixelWidth: number, range: number): string 
   }
 
   if (range <= 4) {
+    // 화살촉이 마지막 기간 눈금과 일치하도록 SVG 너비를 range 기반으로 고정
+    const tipX = x0 + range * TICK   // 화살촉 = 마지막 눈금
+    const svgW = tipX + x0           // 좌우 여백 동일
+    const lineEnd = tipX - ah
     let ticksSVG = ''
     for (let i = 0; i <= range; i++) {
       ticksSVG += tickSVG(x0 + i * TICK, String(i))
     }
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${h}" viewBox="0 0 ${pixelWidth} ${h}">
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${h}" viewBox="0 0 ${svgW} ${h}">
       <line x1="${x0}" y1="${ay}" x2="${lineEnd}" y2="${ay}" stroke="#1A1A1A" stroke-width="2.5"/>
-      <polygon points="${x1},${ay} ${lineEnd},${ay - aw} ${lineEnd},${ay + aw}" fill="#1A1A1A"/>
+      <polygon points="${tipX},${ay} ${lineEnd},${ay - aw} ${lineEnd},${ay + aw}" fill="#1A1A1A"/>
       ${ticksSVG}
     </svg>`
   }
 
-  // range >= 5: 앞 3 + ··· + 뒤 3
+  // range >= 5: 화살촉(x1)이 마지막 눈금 r0과 일치
+  const lineEnd = x1 - ah
   const l0 = x0, l1 = x0 + TICK, l2 = x0 + 2 * TICK
-  const r0 = lineEnd, r1 = lineEnd - TICK, r2 = lineEnd - 2 * TICK
+  const r0 = x1, r1 = x1 - TICK, r2 = x1 - 2 * TICK   // r0 = 화살촉 = 마지막 눈금
   const dotsX0 = l2 + 16
   const dotsX1 = r2 - 16
 

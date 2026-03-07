@@ -21,6 +21,7 @@ interface WhiteboardStore {
   boardName: string | null
   savedAt: number | null
   isCalculatorOpen: boolean
+  isJS40BOpen: boolean
   isTimelineModalOpen: boolean
   isKaTeXModalOpen: boolean
   isBoardNameDialogOpen: boolean
@@ -46,6 +47,7 @@ interface WhiteboardStore {
   setBoardName: (name: string | null) => void
   setSavedAt: (ts: number | null) => void
   toggleCalculator: () => void
+  toggleJS40B: () => void
   toggleTimelineModal: () => void
   toggleKaTeXModal: () => void
   toggleBoardNameDialog: () => void
@@ -75,6 +77,7 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   boardName: null,
   savedAt: null,
   isCalculatorOpen: false,
+  isJS40BOpen: false,
   isTimelineModalOpen: false,
   isKaTeXModalOpen: false,
   isBoardNameDialogOpen: false,
@@ -99,7 +102,14 @@ export const useWhiteboardStore = create<WhiteboardStore>((set, get) => ({
   setTotalPages: (totalPages) => set({ totalPages }),
   setBoardName: (boardName) => set({ boardName }),
   setSavedAt: (savedAt) => set({ savedAt }),
-  toggleCalculator: () => set((s) => ({ isCalculatorOpen: !s.isCalculatorOpen })),
+  toggleCalculator: () => set((s) => ({
+    isCalculatorOpen: !s.isCalculatorOpen,
+    isJS40BOpen: s.isCalculatorOpen ? s.isJS40BOpen : false,   // 열 때만 JS40B 닫기
+  })),
+  toggleJS40B: () => set((s) => ({
+    isJS40BOpen: !s.isJS40BOpen,
+    isCalculatorOpen: s.isJS40BOpen ? s.isCalculatorOpen : false,  // 열 때만 계산기 닫기
+  })),
   toggleTimelineModal: () => set((s) => ({ isTimelineModalOpen: !s.isTimelineModalOpen })),
   toggleKaTeXModal: () => set((s) => ({ isKaTeXModalOpen: !s.isKaTeXModalOpen })),
   toggleBoardNameDialog: () => set((s) => ({ isBoardNameDialogOpen: !s.isBoardNameDialogOpen })),

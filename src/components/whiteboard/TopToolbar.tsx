@@ -62,7 +62,7 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
   const {
     tool, setTool, color, setColor, strokeWidth, setStrokeWidth,
     eraserWidth, setEraserWidth,
-    toggleTimelineModal, toggleKaTeXModal, toggleCalculator,
+    toggleTimelineModal, toggleKaTeXModal, toggleCalculator, toggleJS40B,
     boardName, savedAt, zoom, setZoom,
     numberLineStart, numberLineEnd, setNumberLineStart, setNumberLineEnd,
     allowMouse, setAllowMouse, allowPen, setAllowPen, allowTouch, setAllowTouch,
@@ -226,15 +226,45 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
           </div>
         </div>
 
-        {/* 입력 허용 체크박스 + 진단 버튼 */}
+        {/* 입력 허용 체크박스 + 진단 버튼 — 두 줄 */}
         <div className="flex flex-col justify-center gap-0.5 px-3 border-r border-gray-200 py-1">
-          <div className="flex items-center justify-between mb-0.5">
-            <span className="text-[10px] text-gray-400 leading-none whitespace-nowrap">입력 허용</span>
+          {/* 1행: 마우스, 펜 */}
+          <div className="flex items-center gap-2">
+            {([
+              { label: '마우스', checked: allowMouse, onChange: setAllowMouse },
+              { label: '펜', checked: allowPen, onChange: setAllowPen },
+            ] as const).map(({ label, checked, onChange }) => (
+              <label key={label} className="flex items-center gap-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => onChange(e.target.checked)}
+                  className="w-3 h-3 accent-blue-600 cursor-pointer flex-shrink-0"
+                />
+                <span className={`text-[11px] whitespace-nowrap ${checked ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
+                  {label}
+                </span>
+              </label>
+            ))}
+          </div>
+          {/* 2행: 손, 진단 */}
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allowTouch}
+                onChange={(e) => setAllowTouch(e.target.checked)}
+                className="w-3 h-3 accent-blue-600 cursor-pointer flex-shrink-0"
+              />
+              <span className={`text-[11px] whitespace-nowrap ${allowTouch ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
+                손
+              </span>
+            </label>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   onClick={onTogglePointerDiag}
-                  className={`ml-2 h-4 px-1.5 rounded text-[9px] font-medium border transition-colors ${isPointerDiagOpen
+                  className={`h-4 px-1.5 rounded text-[9px] font-medium border transition-colors ${isPointerDiagOpen
                       ? 'bg-yellow-100 border-yellow-400 text-yellow-700'
                       : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-400'
                     }`}
@@ -245,23 +275,6 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
               <TooltipContent>포인터 압력/기울기 실시간 진단 패널</TooltipContent>
             </Tooltip>
           </div>
-          {([
-            { label: '마우스', checked: allowMouse, onChange: setAllowMouse },
-            { label: '펜', checked: allowPen, onChange: setAllowPen },
-            { label: '손', checked: allowTouch, onChange: setAllowTouch },
-          ] as const).map(({ label, checked, onChange }) => (
-            <label key={label} className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => onChange(e.target.checked)}
-                className="w-3 h-3 accent-blue-600 cursor-pointer flex-shrink-0"
-              />
-              <span className={`text-[11px] whitespace-nowrap ${checked ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
-                {label}
-              </span>
-            </label>
-          ))}
         </div>
 
         {/* 지우개 — 두 줄: 버튼+전체지우기 / 크기 */}
@@ -356,11 +369,11 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
           </Tooltip>
         </div>
 
-        {/* 보험수리 도구 — 타임라인 모달 + KaTeX */}
-        <div className="flex items-center gap-1 px-2 border-r border-gray-200">
+        {/* 보험수리 도구 — 타임라인 + KaTeX, 두 줄 */}
+        <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={toggleTimelineModal} className="h-8 px-2 text-xs font-medium text-[#1E2D5E]">
+              <Button variant="ghost" size="sm" onClick={toggleTimelineModal} className="h-6 px-2 text-xs font-medium text-[#1E2D5E] w-full">
                 타임라인 (T)
               </Button>
             </TooltipTrigger>
@@ -368,7 +381,7 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={toggleKaTeXModal} className="h-8 px-2 text-xs font-medium text-[#1E2D5E]">
+              <Button variant="ghost" size="sm" onClick={toggleKaTeXModal} className="h-6 px-2 text-xs font-medium text-[#1E2D5E] w-full">
                 수식 KaTeX (K)
               </Button>
             </TooltipTrigger>
@@ -426,6 +439,26 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
               placeholder="10"
             />
           </div>
+        </div>
+
+        {/* 계산기 — 시간선 우측, 두 줄 */}
+        <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={toggleCalculator} className="h-6 px-2 text-xs w-full">
+                계산기 (C)
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>공학용 계산기 팝업</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={toggleJS40B} className="h-6 px-2 text-xs w-full">
+                JS-40B
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>CASIO JS-40B 계산기 팝업</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* 필기 인식 */}
@@ -513,17 +546,6 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
           )}
         </div>
 
-        {/* 계산기 */}
-        <div className="flex items-center gap-1 px-2 border-r border-gray-200">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={toggleCalculator} className="h-8 px-2 text-xs">
-                계산기 (C)
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>공학용 계산기 팝업</TooltipContent>
-          </Tooltip>
-        </div>
 
         {/* 확대/축소 */}
         <div className="flex flex-col justify-center gap-1 px-2 border-r border-gray-200 py-1">
@@ -599,6 +621,7 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
           {saveTime && <span>저장됨 · {saveTime}</span>}
         </div>
       </div>{/* end scrollable */}
+
 
       {/* 오른쪽 스크롤 화살표 */}
       {canScrollRight && (
