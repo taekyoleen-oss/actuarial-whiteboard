@@ -30,7 +30,9 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
   const allowTouchRef = useRef(allowTouch)
   const keyDownRef        = useRef<((e: KeyboardEvent) => void) | null>(null)
   const pointerBlockerRef = useRef<((e: PointerEvent) => void) | null>(null)
-  const upperCanvasRef    = useRef<HTMLCanvasElement | null>(null)   // target 비교용
+  const upperCanvasRef    = useRef<HTMLCanvasElement | null>(null)
+  const lastDrawTypeRef    = useRef<'mouse' | 'pen' | 'touch' | null>(null)  // 최근 획 입력 타입
+  const trackDrawTypeRef   = useRef<((e: PointerEvent) => void) | null>(null)
   const [isRecognizing, setIsRecognizing] = useState(false)
   // recognize mode state
   const recognizeStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -100,35 +102,43 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       const upperCanvas = canvas.upperCanvasEl
       upperCanvasRef.current = upperCanvas
 
-      // ── 포인터 필터 — document capture phase에 등록 ──────────────────────
-      // document capture는 어떤 엘리먼트의 리스너보다도 먼저 실행됨.
-      // target 비교: upperCanvasEl 직접 비교 대신 wrapperEl.contains() 사용
-      // (wrapperEl = Fabric이 생성한 컨테이너 div, 훨씬 안정적)
+      // ── 2차 방어: upperCanvasEl pointerdown에서 입력 타입 추적 ──────────────
+      // 터치 이벤트는 브라우저의 묵시적 pointer capture로 인해 pointermove/up이
+      // document capture를 우회함. 따라서 document capture만으로는 완전 차단 불가.
+      // path:created에서 입력 타입을 확인해 차단된 획을 즉시 제거하는 2차 방어 추가.
+      const trackDrawType = (e: PointerEvent) => {
+        lastDrawTypeRef.current = analyzePointer(e).resolvedType
+      }
+      upperCanvas.addEventListener('pointerdown', trackDrawType)
+      trackDrawTypeRef.current = trackDrawType
+
+      // ── 1차 방어: document capture에서 pointerdown 차단 ──────────────────
+      // pointerdown이 차단되면 Fabric이 drawing session을 시작하지 않으므로
+      // 후속 pointermove로 획이 그려지지 않음.
       const filterPointer = (e: PointerEvent) => {
-        // canvas.wrapperEl 안에서 발생한 이벤트만 필터링
-        if (!canvas?.wrapperEl?.contains(e.target as Node)) return
+        // target이 우리 canvas 영역 안인지 확인 (wrapperEl + upperCanvasEl 이중 체크)
+        const target = e.target as Node
+        const onUpper  = upperCanvas && target === upperCanvas
+        const onWrapper = canvas?.wrapperEl?.contains(target)
+        if (!onUpper && !onWrapper) return
 
         // ── TOUCH: first-touch-wins palm rejection ────────────────────────
-        // 정전식 스타일러스는 pointerType='touch'로 보고됨 → 손바닥도 동일.
-        // 먼저 닿은 포인터를 스타일러스로 간주하고, 동시에 생기는
-        // 추가 터치는 모두 손바닥으로 차단한다.
         if (e.pointerType === 'touch') {
           if (e.type === 'pointerdown') {
             if (primaryTouchIdRef.current === null) {
-              primaryTouchIdRef.current = e.pointerId          // 첫 터치 = 스타일러스
+              primaryTouchIdRef.current = e.pointerId
             } else {
-              blockedTouchIds.current.add(e.pointerId)         // 동시 터치 = 손바닥
+              blockedTouchIds.current.add(e.pointerId)
               e.preventDefault(); e.stopImmediatePropagation(); return
             }
           } else {
-            // pointermove / pointerup / pointercancel
             if (blockedTouchIds.current.has(e.pointerId)) {
               if (e.type !== 'pointermove') blockedTouchIds.current.delete(e.pointerId)
               e.preventDefault(); e.stopImmediatePropagation(); return
             }
             if ((e.type === 'pointerup' || e.type === 'pointercancel') &&
                 e.pointerId === primaryTouchIdRef.current) {
-              primaryTouchIdRef.current = null                 // 스타일러스 들어올림
+              primaryTouchIdRef.current = null
             }
           }
         }
@@ -158,7 +168,22 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       document.addEventListener('pointercancel', filterPointer, { capture: true })
       pointerBlockerRef.current = filterPointer
 
-      canvas.on('path:created', () => {
+      // ── path:created: 2차 방어 — 차단 입력으로 그린 획 즉시 제거 ──────────
+      // 1차 방어(document capture)가 뚫렸을 때의 안전망.
+      // onStrokeEndRef(undo push)를 호출하지 않으므로 undo 스택에도 남지 않음.
+      canvas.on('path:created', (opt: Record<string, unknown>) => {
+        const ptype = lastDrawTypeRef.current
+        if (ptype) {
+          const blocked =
+            (ptype === 'pen'   && !allowPenRef.current)   ||
+            (ptype === 'mouse' && !allowMouseRef.current) ||
+            (ptype === 'touch' && !allowTouchRef.current)
+          if (blocked) {
+            canvas.remove(opt.path as import('fabric').Path)
+            canvas.requestRenderAll()
+            return  // undo 스택 push 안 함
+          }
+        }
         onStrokeEndRef.current?.()
       })
 
@@ -196,6 +221,10 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         document.removeEventListener('pointerup',     pointerBlockerRef.current as EventListener, { capture: true })
         document.removeEventListener('pointercancel', pointerBlockerRef.current as EventListener, { capture: true })
         pointerBlockerRef.current = null
+      }
+      if (trackDrawTypeRef.current && upperCanvasRef.current) {
+        upperCanvasRef.current.removeEventListener('pointerdown', trackDrawTypeRef.current as EventListener)
+        trackDrawTypeRef.current = null
       }
       upperCanvasRef.current = null
       // Dispose whichever canvas instance exists
