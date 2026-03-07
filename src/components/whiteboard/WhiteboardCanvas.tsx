@@ -244,10 +244,31 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
     async function updateBrush() {
       const { PencilBrush } = await import('fabric')
 
+      // ── FilteredPencilBrush: onMouseDown에서 입력 타입 직접 차단 ──────────
+      // 이벤트 전파/캡처 방식과 달리, 브러시 레벨에서 차단하므로
+      // pointer capture, 이벤트 우선순위 등 모든 환경에서 확실히 동작.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      class FilteredPencilBrush extends PencilBrush {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onMouseDown(pointer: any, ev: any) {
+          const e = ev?.e as PointerEvent | undefined
+          if (e && 'pointerType' in e) {
+            const { resolvedType } = analyzePointer(e)
+            const { allowMouse: am, allowPen: ap, allowTouch: at } = useWhiteboardStore.getState()
+            if (
+              (resolvedType === 'pen'   && !ap) ||
+              (resolvedType === 'mouse' && !am) ||
+              (resolvedType === 'touch' && !at)
+            ) return  // 차단: super.onMouseDown 호출 안 함 → 획 시작 안 됨
+          }
+          super.onMouseDown(pointer, ev)
+        }
+      }
+
       if (tool === 'pen') {
         canvas!.isDrawingMode = true
         canvas!.selection = false
-        const brush = new PencilBrush(canvas!)
+        const brush = new FilteredPencilBrush(canvas!)
         brush.color = getHexColor()
         brush.width = strokeWidth
         canvas!.freeDrawingBrush = brush
@@ -257,7 +278,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       } else if (tool === 'eraser') {
         canvas!.isDrawingMode = true
         canvas!.selection = false
-        const brush = new PencilBrush(canvas!)
+        const brush = new FilteredPencilBrush(canvas!)
         brush.color = 'rgba(255,255,255,0.01)'
         brush.width = eraserWidth
         canvas!.freeDrawingBrush = brush
