@@ -32,6 +32,8 @@ const MAX_UNDO = 50
 
 export default function Home() {
   const canvasHandleRef = useRef<WhiteboardCanvasHandle>(null)
+  const appContainerRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const {
     setTool, setColor, setZoom, zoom,
     setCurrentPageIndex, setTotalPages, setBoardName,
@@ -240,6 +242,23 @@ export default function Home() {
     setTimeout(() => doSave(), 50)
   }
 
+  /** 전체보기: 브라우저 주소창·북마크 등을 숨기고 앱만 전체 화면으로 표시 (공간 확보) */
+  function handleToggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {})
+      return
+    }
+    appContainerRef.current?.requestFullscreen?.().catch(() => {})
+  }
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
   // Keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -300,7 +319,7 @@ export default function Home() {
   }, [currentIndex, pages, currentBoard])
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-white">
+    <div ref={appContainerRef} className="h-screen flex flex-col overflow-hidden bg-white">
       {/* Top toolbar */}
       <TopToolbar
         onUndo={handleUndo}
@@ -317,6 +336,8 @@ export default function Home() {
         onRenameBoard={toggleBoardNameDialog}
         isPointerDiagOpen={isPointerDiagOpen}
         onTogglePointerDiag={() => setIsPointerDiagOpen(v => !v)}
+        onToggleFullscreen={handleToggleFullscreen}
+        isFullscreen={isFullscreen}
       />
 
       {/* Sidebar toggle button */}
@@ -329,7 +350,7 @@ export default function Home() {
       </button>
 
       {/* Canvas area + symbol panel */}
-      <div className="flex-1 overflow-hidden flex flex-row">
+      <div className="flex-1 min-h-0 overflow-hidden flex flex-row">
         {isSymbolPanelOpen && (
           <InterestSymbolPanel />
         )}
@@ -347,7 +368,7 @@ export default function Home() {
           onNextPage={() => switchToPage(currentIndex + 1)}
           onAddPage={() => addPage()}
         />
-        <ZoomControl />
+        <ZoomControl onToggleFullscreen={handleToggleFullscreen} isFullscreen={isFullscreen} />
       </div>
 
       {/* Modals & Overlays */}

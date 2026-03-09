@@ -18,12 +18,33 @@ const TYPE_LABEL: Record<string, string> = {
   touch: '손(터치)',
 }
 
+function buildTableRows(
+  cur: PointerSignals,
+  lastButton: { button: number; buttons: number } | null
+): [string, string][] {
+  const rows: [string, string][] = [
+    ['pressure', cur.pressure.toFixed(4)],
+    ['tiltX', cur.tiltX + '°'],
+    ['tiltY', cur.tiltY + '°'],
+    ['width', cur.width.toFixed(1) + ' px'],
+    ['height', cur.height.toFixed(1) + ' px'],
+    ['penScore', String(cur.penScore) + ' / 100'],
+  ]
+  if (lastButton) {
+    rows.push(['button', String(lastButton.button) + ' (0=tip, 1·2=옆버튼)'])
+    rows.push(['buttons', String(lastButton.buttons) + ' (비트마스크)'])
+  }
+  return rows
+}
+
 export default function PointerDiagPanel({ onClose }: Props) {
   const [cur, setCur] = useState<PointerSignals | null>(null)
   const [history, setHistory] = useState<PointerSignals[]>([])
+  const [lastButton, setLastButton] = useState<{ button: number; buttons: number } | null>(null)
 
   useEffect(() => {
     const handle = (e: PointerEvent) => {
+      setLastButton({ button: e.button, buttons: e.buttons })
       const s = analyzePointer(e)
       setCur(s)
       setHistory(prev => [s, ...prev].slice(0, 6))
@@ -43,6 +64,7 @@ export default function PointerDiagPanel({ onClose }: Props) {
         <span className="font-semibold text-[11px] text-gray-700">포인터 진단</span>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-base leading-none px-1">✕</button>
       </div>
+      <p className="px-3 py-1 text-[10px] text-gray-500 border-b border-gray-50">스타일러스 옆 버튼을 누르면 button/buttons 값을 확인할 수 있습니다.</p>
 
       {cur ? (
         <div className="p-3 space-y-2.5">
@@ -57,14 +79,7 @@ export default function PointerDiagPanel({ onClose }: Props) {
           {/* 신호 테이블 */}
           <table className="w-full">
             <tbody>
-              {([
-                ['pressure',  cur.pressure.toFixed(4)],
-                ['tiltX',     cur.tiltX + '°'],
-                ['tiltY',     cur.tiltY + '°'],
-                ['width',     cur.width.toFixed(1) + ' px'],
-                ['height',    cur.height.toFixed(1) + ' px'],
-                ['penScore',  String(cur.penScore) + ' / 100'],
-              ] as [string, string][]).map(([k, v]) => (
+              {buildTableRows(cur, lastButton).map(([k, v]) => (
                 <tr key={k} className="border-b border-gray-50">
                   <td className="py-0.5 pr-3 text-gray-400 w-20">{k}</td>
                   <td className={`py-0.5 font-semibold ${

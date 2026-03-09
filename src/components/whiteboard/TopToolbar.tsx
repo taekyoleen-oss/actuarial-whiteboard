@@ -23,6 +23,8 @@ interface TopToolbarProps {
   onRenameBoard: () => void
   isPointerDiagOpen: boolean
   onTogglePointerDiag: () => void
+  onToggleFullscreen?: () => void
+  isFullscreen?: boolean
 }
 
 const COLORS = [
@@ -33,7 +35,7 @@ const COLORS = [
 
 const WIDTHS = [2, 4, 8]
 
-export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel, onNewBoard, onOpenBoards, onRenameBoard, isPointerDiagOpen, onTogglePointerDiag }: TopToolbarProps) {
+export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, onStrokeEnd, getCanvas, isSymbolPanelOpen, onToggleSymbolPanel, onNewBoard, onOpenBoards, onRenameBoard, isPointerDiagOpen, onTogglePointerDiag, onToggleFullscreen, isFullscreen }: TopToolbarProps) {
   const [showClearMenu, setShowClearMenu] = useState(false)
   const [clearMenuPos, setClearMenuPos] = useState<{ top: number; left: number } | null>(null)
   const clearBtnRef = useRef<HTMLDivElement>(null)
@@ -550,6 +552,16 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
         {/* 확대/축소 */}
         <div className="flex flex-col justify-center gap-1 px-2 border-r border-gray-200 py-1">
           <div className="flex items-center gap-0.5">
+            {onToggleFullscreen && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={onToggleFullscreen} className="h-6 px-1.5 text-xs">
+                    {isFullscreen ? '전체보기 해제' : '전체보기'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isFullscreen ? '전체보기 해제 (Esc)' : '주소창·북마크 등을 숨기고 앱만 전체 화면으로'}</TooltipContent>
+              </Tooltip>
+            )}
             <Button variant="ghost" size="sm" onClick={() => setZoom(Math.max(0.2, Math.round((zoom - 0.1) * 10) / 10))} className="h-6 w-6 p-0 text-sm font-bold">−</Button>
             <button onClick={() => setZoom(1)} className="text-xs text-gray-600 min-w-[38px] text-center hover:text-blue-600 transition-colors tabular-nums">
               {Math.round(zoom * 100)}%

@@ -5,6 +5,8 @@ import { useWhiteboardStore } from '@/store/whiteboardStore'
 import { recognizeHandwriting } from '@/lib/canvas/inkRecognition'
 import { generateArrowLineSVG, generateNumberLineSVG } from '@/lib/canvas/actuarialShapes'
 import { analyzePointer } from '@/lib/canvas/pointerDetect'
+import { isCanvasExportReady } from '@/lib/canvas/exportUtils'
+import { Button } from '@/components/ui/button'
 
 export interface WhiteboardCanvasHandle {
   getCanvas: () => import('fabric').Canvas | null
@@ -15,12 +17,22 @@ interface Props {
   onStrokeEnd?: () => void
 }
 
-const CANVAS_WIDTH = 1600
-const CANVAS_HEIGHT = 900
+const INITIAL_CANVAS_WIDTH = 1600
+const INITIAL_CANVAS_HEIGHT = 900
+const EDGE_THRESHOLD = 80
+const EXPAND_RATIO = 0.3
+/** 스크롤바 옆에 버튼을 두기 위한 스크롤바 크기 (브라우저 기본값 근사) */
+const SCROLLBAR_SIZE = 17
 
 const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSON, onStrokeEnd }, ref) => {
   const canvasElRef = useRef<HTMLCanvasElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const fabricRef = useRef<import('fabric').Canvas | null>(null)
+  const [canvasWidth, setCanvasWidth] = useState(INITIAL_CANVAS_WIDTH)
+  const [canvasHeight, setCanvasHeight] = useState(INITIAL_CANVAS_HEIGHT)
+  const [expandPopup, setExpandPopup] = useState<{ right: boolean; bottom: boolean } | null>(null)
+  /** 스크롤 컨테이너의 뷰포트 기준 위치 (fixed 버튼 배치용) */
+  const [containerRect, setContainerRect] = useState<DOMRect | null>(null)
   const { tool, getHexColor, strokeWidth, eraserWidth, eraserMode, zoom, setZoom, setTool, numberLineStart, numberLineEnd, pendingSymbolLatex, setPendingSymbolLatex, allowMouse, allowPen, allowTouch, recognizeMode, clipboardJSON } = useWhiteboardStore()
   const isStylusing       = useRef(false)
   const primaryTouchIdRef = useRef<number | null>(null)   // first-touch-wins palm rejection
@@ -34,6 +46,13 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
   const lastDrawTypeRef    = useRef<'mouse' | 'pen' | 'touch' | null>(null)  // 최근 획 입력 타입
   const trackDrawTypeRef   = useRef<((e: PointerEvent) => void) | null>(null)
   const [isRecognizing, setIsRecognizing] = useState(false)
+  /** 펜으로 캔버스 길게 누르면 뜨는 도구 전환 팝업 위치 (null이면 미표시) */
+  const [toolPopup, setToolPopup] = useState<{ x: number; y: number } | null>(null)
+  const longPressTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressPosRef       = useRef<{ x: number; y: number } | null>(null)
+  const longPressPointerIdRef = useRef<number | null>(null)
+  const toolPopupSetRef       = useRef<(pos: { x: number; y: number } | null) => void>(() => {})
+  toolPopupSetRef.current = setToolPopup
   // recognize mode state
   const recognizeStartRef = useRef<{ x: number; y: number } | null>(null)
   const recognizeRectRef = useRef<import('fabric').Rect | null>(null)
@@ -72,8 +91,8 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       }
 
       canvas = new Canvas(canvasElRef.current, {
-        width: CANVAS_WIDTH,
-        height: CANVAS_HEIGHT,
+        width: INITIAL_CANVAS_WIDTH,
+        height: INITIAL_CANVAS_HEIGHT,
         backgroundColor: '#ffffff',
         isDrawingMode: true,
         selection: false,
@@ -153,6 +172,39 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
           setTimeout(() => { isStylusing.current = false }, 200)
         }
 
+        // ── 펜 길게 누르기(약 0.5초): 도구 전환 팝업 표시 (버튼 방식 대신) ─────────
+        const isPenOnCanvas = (e.pointerType === 'pen' || analyzePointer(e).resolvedType === 'pen') && (onUpper || onWrapper)
+        if (isPenOnCanvas) {
+          if (e.type === 'pointerdown') {
+            longPressPosRef.current = { x: e.clientX, y: e.clientY }
+            longPressPointerIdRef.current = e.pointerId
+            if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+            longPressTimerRef.current = setTimeout(() => {
+              const pos = longPressPosRef.current
+              if (pos) {
+                const c = fabricRef.current
+                if (c) {
+                  const objs = c.getObjects()
+                  const last = objs[objs.length - 1]
+                  if (last?.type === 'path') {
+                    c.remove(last)
+                    c.requestRenderAll()
+                  }
+                }
+                toolPopupSetRef.current({ ...pos })
+              }
+              longPressTimerRef.current = null
+            }, 500)
+          } else if ((e.type === 'pointerup' || e.type === 'pointercancel') && e.pointerId === longPressPointerIdRef.current) {
+            if (longPressTimerRef.current) {
+              clearTimeout(longPressTimerRef.current)
+              longPressTimerRef.current = null
+            }
+            longPressPointerIdRef.current = null
+            longPressPosRef.current = null
+          }
+        }
+
         // ── 입력 허용 플래그 ──────────────────────────────────────────────
         const { resolvedType } = analyzePointer(e)
         const blocked =
@@ -225,6 +277,12 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
         window.removeEventListener('pointerdown', trackDrawTypeRef.current as EventListener, { capture: true })
         trackDrawTypeRef.current = null
       }
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+        longPressTimerRef.current = null
+      }
+      longPressPointerIdRef.current = null
+      longPressPosRef.current = null
       upperCanvasRef.current = null
       // Dispose whichever canvas instance exists
       const toDispose = canvas ?? fabricRef.current
@@ -450,6 +508,8 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
       canvas.requestRenderAll()
 
       if (width < 10 || height < 10) return
+
+      if (!isCanvasExportReady(canvas)) return
 
       setIsRecognizing(true)
       try {
@@ -703,21 +763,74 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
     return () => canvas.off('mouse:down', onMouseDown as any)
   }, [tool, clipboardJSON, setTool])
 
-  // Zoom
+  // Zoom & canvas dimensions (캔버스 확장 시에도 Fabric 반영)
   useEffect(() => {
     const canvas = fabricRef.current
     if (!canvas) return
     canvas.setZoom(zoom)
     canvas.setDimensions({
-      width: CANVAS_WIDTH * zoom,
-      height: CANVAS_HEIGHT * zoom,
+      width: canvasWidth * zoom,
+      height: canvasHeight * zoom,
     })
     canvas.requestRenderAll()
-  }, [zoom])
+  }, [zoom, canvasWidth, canvasHeight])
+
+  // 스크롤 컨테이너 위치 측정 (영역 추가 버튼을 뷰포트 기준 fixed로 항상 우측/하단에 붙이기 위함)
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el || !expandPopup) {
+      setContainerRect(null)
+      return
+    }
+    function updateRect() {
+      if (el) setContainerRect(el.getBoundingClientRect())
+    }
+    updateRect()
+    const ro = new ResizeObserver(updateRect)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [expandPopup?.right, expandPopup?.bottom, canvasWidth, canvasHeight, zoom])
+
+  // 스크롤 끝 감지 → 영역 추가 팝업 표시
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    function checkEdge() {
+      const { scrollLeft, scrollTop, scrollWidth, scrollHeight, clientWidth, clientHeight } = el
+      const nearRight = scrollWidth > clientWidth && scrollLeft + clientWidth >= scrollWidth - EDGE_THRESHOLD
+      const nearBottom = scrollHeight > clientHeight && scrollTop + clientHeight >= scrollHeight - EDGE_THRESHOLD
+      if (nearRight || nearBottom) setExpandPopup({ right: nearRight, bottom: nearBottom })
+      else setExpandPopup(null)
+    }
+    checkEdge()
+    el.addEventListener('scroll', checkEdge)
+    const ro = new ResizeObserver(checkEdge)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', checkEdge); ro.disconnect() }
+  }, [canvasWidth, canvasHeight, zoom])
+
+  function handleExpandArea(direction: 'right' | 'bottom') {
+    const el = scrollContainerRef.current
+    if (!el) return
+    if (direction === 'right') {
+      const addW = Math.max(100, Math.round(el.clientWidth * EXPAND_RATIO))
+      setCanvasWidth((w) => w + addW)
+    } else {
+      const addH = Math.max(100, Math.round(el.clientHeight * EXPAND_RATIO))
+      setCanvasHeight((h) => h + addH)
+    }
+  }
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-100 flex items-start justify-start">
-      <div style={{ transformOrigin: 'top left' }}>
+    <div ref={scrollContainerRef} className="flex-1 min-h-0 min-w-0 overflow-auto bg-gray-100 flex items-start justify-start relative">
+      <div
+        style={{
+          width: canvasWidth * zoom,
+          height: canvasHeight * zoom,
+          transformOrigin: 'top left',
+          flexShrink: 0,
+        }}
+      >
         <canvas
           ref={canvasElRef}
           style={{
@@ -732,6 +845,91 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
           }}
         />
       </div>
+      {/* 우측 영역 추가: 뷰포트 기준 fixed → 스크롤/확장 후에도 항상 스크롤 영역 우측, 세로 중앙 */}
+      {expandPopup?.right && containerRect && (
+        <div
+          className="fixed z-10 flex items-center justify-end pointer-events-none"
+          style={{
+            left: containerRect.left,
+            top: containerRect.top,
+            width: containerRect.width,
+            height: Math.max(0, containerRect.height - SCROLLBAR_SIZE),
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => handleExpandArea('right')}
+            title="우측으로 화면의 약 30% 확장"
+            className="pointer-events-auto px-3 py-4 rounded-l-lg bg-[#1E2D5E] text-white text-sm font-medium shadow-lg hover:bg-[#2a3d6a] transition-colors"
+          >
+            영역 추가
+          </button>
+        </div>
+      )}
+      {/* 하단 영역 추가: 뷰포트 기준 fixed → 스크롤/확장 후에도 항상 스크롤 영역 하단, 가로 중앙 */}
+      {expandPopup?.bottom && containerRect && (
+        <div
+          className="fixed z-10 flex items-end justify-center pointer-events-none"
+          style={{
+            left: containerRect.left,
+            top: containerRect.top,
+            width: Math.max(0, containerRect.width - SCROLLBAR_SIZE),
+            height: containerRect.height,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => handleExpandArea('bottom')}
+            title="하단으로 화면의 약 30% 확장"
+            className="pointer-events-auto px-4 py-3 rounded-t-lg bg-[#1E2D5E] text-white text-sm font-medium shadow-lg hover:bg-[#2a3d6a] transition-colors"
+          >
+            영역 추가
+          </button>
+        </div>
+      )}
+      {/* 펜으로 캔버스 길게 누르면 표시: 선택 / 펜 / 지우개 */}
+      {toolPopup && (
+        <>
+          <div
+            className="fixed inset-0 z-20"
+            aria-hidden
+            onClick={() => setToolPopup(null)}
+          />
+          <div
+            className="fixed z-30 flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+            style={{
+              left: toolPopup.x,
+              top: toolPopup.y - 8,
+              transform: 'translate(-50%, -100%)',
+            }}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => { setTool('select'); setToolPopup(null) }}
+            >
+              선택
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => { setTool('pen'); setToolPopup(null) }}
+            >
+              펜
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => { setTool('eraser'); setToolPopup(null) }}
+            >
+              지우개
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   )
 })
@@ -739,4 +937,4 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
 WhiteboardCanvas.displayName = 'WhiteboardCanvas'
 
 export default WhiteboardCanvas
-export { CANVAS_WIDTH, CANVAS_HEIGHT }
+export { INITIAL_CANVAS_WIDTH as CANVAS_WIDTH, INITIAL_CANVAS_HEIGHT as CANVAS_HEIGHT }
