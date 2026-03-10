@@ -35,10 +35,10 @@ export default function Home() {
   const appContainerRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const {
-    setTool, setColor, setZoom, zoom,
+    setTool, setColor, setZoom, zoom, tool,
     setCurrentPageIndex, setTotalPages, setBoardName,
     setSavedAt, toggleSidebar, toggleBoardNameDialog,
-    boardName,
+    boardName, numberLineStart, numberLineEnd,
     toggleTimelineModal, toggleKaTeXModal, toggleCalculator,
   } = useWhiteboardStore()
 

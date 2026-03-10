@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Slider } from '@/components/ui/slider'
 import type { Canvas as FabricCanvas } from 'fabric'
 import { exportCurrentPageAsPNG } from '@/lib/canvas/exportUtils'
+import PeriodRuler from '@/components/whiteboard/PeriodRuler'
 
 interface TopToolbarProps {
   onUndo: () => void
@@ -115,7 +116,8 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
   }
 
   return (
-    <div className="flex items-stretch border-b border-gray-200 bg-white/95 backdrop-blur-sm z-10 flex-shrink-0 relative min-h-[48px]">
+    <div className="flex flex-col flex-shrink-0 border-b border-gray-200 bg-white/95 backdrop-blur-sm z-10">
+      <div className="flex items-stretch min-h-[48px] relative">
       {/* 왼쪽 스크롤 화살표 */}
       {canScrollLeft && (
         <button
@@ -371,26 +373,6 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
           </Tooltip>
         </div>
 
-        {/* 보험수리 도구 — 타임라인 + KaTeX, 두 줄 */}
-        <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={toggleTimelineModal} className="h-6 px-2 text-xs font-medium text-[#1E2D5E] w-full">
-                타임라인 (T)
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>보험수리 타임라인 다이어그램 삽입</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="sm" onClick={toggleKaTeXModal} className="h-6 px-2 text-xs font-medium text-[#1E2D5E] w-full">
-                수식 KaTeX (K)
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>LaTeX 수식 삽입</TooltipContent>
-          </Tooltip>
-        </div>
-
         {/* 자동 화살표·시간선 그리기 — 두 줄 레이아웃 */}
         <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
           {/* 1행: 버튼 */}
@@ -422,7 +404,7 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
               <TooltipContent>클릭 위치에 시간 눈금 타임라인 배치</TooltipContent>
             </Tooltip>
           </div>
-          {/* 2행: 시작/끝 입력 */}
+          {/* 2행: 시작/끝 입력 — 끝은 콤보박스(n, t, 1/m, -, 1~10) */}
           <div className={`flex items-center gap-1 transition-opacity ${tool === 'time-line' ? 'opacity-100' : 'opacity-40'}`}>
             <span className="text-xs text-gray-500">시작</span>
             <input
@@ -433,17 +415,44 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
               placeholder="0"
             />
             <span className="text-xs text-gray-400">~</span>
-            <input
+            <select
               value={numberLineEnd}
               onChange={(e) => setNumberLineEnd(e.target.value)}
               disabled={tool !== 'time-line'}
-              className="w-9 h-5 border border-gray-300 rounded px-1 text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-              placeholder="n"
-            />
+              className="h-6 min-w-[52px] max-w-[72px] border border-gray-300 rounded px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 bg-white"
+            >
+              <option value="n">n</option>
+              <option value="t">t</option>
+              <option value="1/m">1/m</option>
+              <option value="-">-</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((v) => (
+                <option key={v} value={String(v)}>{v}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* 계산기 — 시간선 우측, 두 줄 */}
+        {/* 보험수리 도구 — 타임라인 + KaTeX (계산기 바로 앞) */}
+        <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={toggleTimelineModal} className="h-6 px-2 text-xs font-medium text-[#1E2D5E] w-full">
+                타임라인 (T)
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>보험수리 타임라인 다이어그램 삽입</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={toggleKaTeXModal} className="h-6 px-2 text-xs font-medium text-[#1E2D5E] w-full">
+                수식 KaTeX (K)
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>LaTeX 수식 삽입</TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* 계산기 — 타임라인·수식 뒤 */}
         <div className="flex flex-col justify-center gap-0.5 px-2 border-r border-gray-200 py-1">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -642,6 +651,9 @@ export default function TopToolbar({ onUndo, onRedo, canUndo, canRedo, onSave, o
           className="flex-shrink-0 w-7 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 border-l border-gray-200 text-lg font-bold z-10"
         >›</button>
       )}
+      </div>
+      {/* 눈금선: 메뉴에 붙여 표시, 0~10 기간 참고 */}
+      <PeriodRuler className="border-t-0" />
     </div>
   )
 }

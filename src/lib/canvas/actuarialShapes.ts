@@ -141,42 +141,17 @@ export function generateArrowLineSVG(pixelWidth: number, range: number): string 
     </svg>`
   }
 
-  if (range <= 4) {
-    // 화살촉이 마지막 기간 눈금과 일치하도록 SVG 너비를 range 기반으로 고정
-    const tipX = x0 + range * TICK   // 화살촉 = 마지막 눈금
-    const svgW = tipX + x0           // 좌우 여백 동일
-    const lineEnd = tipX - ah
-    let ticksSVG = ''
-    for (let i = 0; i <= range; i++) {
-      ticksSVG += tickSVG(x0 + i * TICK, String(i))
-    }
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${h}" viewBox="0 0 ${svgW} ${h}">
-      <line x1="${x0}" y1="${ay}" x2="${lineEnd}" y2="${ay}" stroke="#1A1A1A" stroke-width="2.5"/>
-      <polygon points="${tipX},${ay} ${lineEnd},${ay - aw} ${lineEnd},${ay + aw}" fill="#1A1A1A"/>
-      ${ticksSVG}
-    </svg>`
+  // range >= 1: 점선 없이 0~range 숫자 모두 나열
+  const tipX = x0 + range * TICK
+  const svgW = tipX + x0
+  const lineEnd = tipX - ah
+  let ticksSVG = ''
+  for (let i = 0; i <= range; i++) {
+    ticksSVG += tickSVG(x0 + i * TICK, String(i))
   }
-
-  // range >= 5: 화살촉(x1)이 마지막 눈금 r0과 일치
-  const lineEnd = x1 - ah
-  const l0 = x0, l1 = x0 + TICK, l2 = x0 + 2 * TICK
-  const r0 = x1, r1 = x1 - TICK, r2 = x1 - 2 * TICK   // r0 = 화살촉 = 마지막 눈금
-  const dotsX0 = l2 + 8
-  const dotsX1 = r2 - 8
-
-  const ticksSVG = [
-    tickSVG(l0, '0'), tickSVG(l1, '1'), tickSVG(l2, '2'),
-    tickSVG(r2, String(range - 2)), tickSVG(r1, String(range - 1)), tickSVG(r0, String(range)),
-  ].join('')
-
-  const dotsSVG = `<line x1="${dotsX0}" y1="${ay}" x2="${dotsX1}" y2="${ay}" stroke="#aaa" stroke-width="2" stroke-dasharray="5,6"/>
-    <text x="${(dotsX0 + dotsX1) / 2}" y="${ay + 5}" text-anchor="middle" font-family="${FONT}" font-size="18" fill="#888">···</text>`
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${h}" viewBox="0 0 ${pixelWidth} ${h}">
-    <line x1="${x0}" y1="${ay}" x2="${dotsX0}" y2="${ay}" stroke="#1A1A1A" stroke-width="2.5"/>
-    ${dotsSVG}
-    <line x1="${dotsX1}" y1="${ay}" x2="${lineEnd}" y2="${ay}" stroke="#1A1A1A" stroke-width="2.5"/>
-    <polygon points="${x1},${ay} ${lineEnd},${ay - aw} ${lineEnd},${ay + aw}" fill="#1A1A1A"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${h}" viewBox="0 0 ${svgW} ${h}">
+    <line x1="${x0}" y1="${ay}" x2="${lineEnd}" y2="${ay}" stroke="#1A1A1A" stroke-width="2.5"/>
+    <polygon points="${tipX},${ay} ${lineEnd},${ay - aw} ${lineEnd},${ay + aw}" fill="#1A1A1A"/>
     ${ticksSVG}
   </svg>`
 }
@@ -209,9 +184,10 @@ export function generateNumberLineSVG(startStr: string, endStr: string): string 
   const isEndInf = endStr.trim() === '-'
   const isEndN = endStr.trim().toLowerCase() === 'n'
   const isEndT = endStr.trim().toLowerCase() === 't'
+  const isEndOneOverM = endStr.trim() === '1/m'
 
   const startNum = isStartInf ? 0 : (parseInt(startStr) || 0)
-  const endNum = (isEndInf || isEndN || isEndT) ? startNum + 10 : (parseInt(endStr) || 10)
+  const endNum = (isEndInf || isEndN || isEndT || isEndOneOverM) ? startNum + 10 : (parseInt(endStr) || 10)
 
   // Determine label arrays
   let leftLabels: string[] = []
@@ -240,6 +216,11 @@ export function generateNumberLineSVG(startStr: string, endStr: string): string 
   } else if (isEndT) {
     leftLabels = [String(startNum), String(startNum + 1), String(startNum + 2)]
     rightLabels = ['t']
+    hasDots = true
+  } else if (isEndOneOverM) {
+    // 0~1 구간: 왼쪽 0, 1/m, 2/m ··· (m-2)/m, (m-1)/m, 1 (길이는 n과 동일)
+    leftLabels = ['0', '1/m', '2/m']
+    rightLabels = ['(m-2)/m', '(m-1)/m', '1']
     hasDots = true
   } else {
     const range = endNum - startNum
