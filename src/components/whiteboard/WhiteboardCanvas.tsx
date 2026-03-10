@@ -172,7 +172,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
           setTimeout(() => { isStylusing.current = false }, 200)
         }
 
-        // ── 펜 길게 누르기(약 0.5초): 도구 전환 팝업 표시 (버튼 방식 대신) ─────────
+        // ── 펜 길게 누르기(약 1초): 도구 전환 팝업 표시 (버튼 방식 대신) ─────────
         const isPenOnCanvas = (e.pointerType === 'pen' || analyzePointer(e).resolvedType === 'pen') && (onUpper || onWrapper)
         if (isPenOnCanvas) {
           if (e.type === 'pointerdown') {
@@ -194,7 +194,7 @@ const WhiteboardCanvas = forwardRef<WhiteboardCanvasHandle, Props>(({ initialJSO
                 toolPopupSetRef.current({ ...pos })
               }
               longPressTimerRef.current = null
-            }, 500)
+            }, 1000)
           } else if ((e.type === 'pointerup' || e.type === 'pointercancel') && e.pointerId === longPressPointerIdRef.current) {
             if (longPressTimerRef.current) {
               clearTimeout(longPressTimerRef.current)
