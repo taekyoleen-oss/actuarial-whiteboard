@@ -32,6 +32,37 @@ export function exportCurrentPageAsPNG(canvas: FabricCanvas, boardName: string, 
   }
 }
 
+/** 선택된 개체를 이미지로 클립보드에 복사. 선택이 없거나 실패 시 false */
+export async function copySelectionAsImageToClipboard(canvas: FabricCanvas): Promise<boolean> {
+  if (!isCanvasExportReady(canvas)) return false
+  const active = canvas.getActiveObject()
+  if (!active) return false
+  try {
+    const rect = active.getBoundingRect(true)
+    const pad = 2
+    const left = Math.max(0, Math.floor(rect.left - pad))
+    const top = Math.max(0, Math.floor(rect.top - pad))
+    const width = Math.ceil(rect.width + pad * 2)
+    const height = Math.ceil(rect.height + pad * 2)
+    if (width <= 0 || height <= 0) return false
+    const dataURL = canvas.toDataURL({
+      format: 'png',
+      multiplier: 2,
+      quality: 1,
+      left,
+      top,
+      width,
+      height,
+    })
+    const res = await fetch(dataURL)
+    const blob = await res.blob()
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** 현재 캔버스 내용을 썸네일용 data URL로 반환. 실패 시 빈 이미지 data URL 반환 */
 export function generateThumbnail(canvas: FabricCanvas): string {
   if (!isCanvasExportReady(canvas)) return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='

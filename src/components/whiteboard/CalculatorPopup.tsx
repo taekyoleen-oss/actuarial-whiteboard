@@ -20,7 +20,7 @@ const BUTTONS: CalcKey[][] = [
 ]
 
 export default function CalculatorPopup() {
-  const { isCalculatorOpen } = useWhiteboardStore()
+  const { isCalculatorOpen, toggleCalculator } = useWhiteboardStore()
   const [display, setDisplay] = useState('0')
   const [expr, setExpr] = useState('')
   const [isDragging, setIsDragging] = useState(false)
@@ -128,13 +128,24 @@ export default function CalculatorPopup() {
       onMouseUp={handleMouseUp}
     >
       <div className="w-[432px] rounded-xl shadow-xl border border-gray-200 bg-gray-50 overflow-hidden">
-        {/* Drag handle */}
+        {/* Drag handle + 닫기 */}
         <div
           className="bg-[#1E2D5E] text-white text-base px-4 py-2.5 cursor-move flex justify-between items-center"
           onMouseDown={handleMouseDown}
         >
           <span>공학용 계산기</span>
-          <span className="opacity-60 text-base">⠿</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggleCalculator() }}
+              className="p-1 rounded hover:bg-white/20 transition-colors"
+              title="닫기"
+              aria-label="닫기"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+            <span className="opacity-60 text-base">⠿</span>
+          </div>
         </div>
 
         {/* Display */}

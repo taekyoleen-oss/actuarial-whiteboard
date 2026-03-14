@@ -7,7 +7,8 @@ import { usePages } from '@/hooks/usePages'
 import { useLocalBoards } from '@/hooks/useLocalBoards'
 import { LocalBoard } from '@/types/board'
 import { saveBoard, getAllBoards, createNewBoard, createEmptyPage } from '@/lib/storage/localBoards'
-import { generateThumbnail } from '@/lib/canvas/exportUtils'
+import { generateThumbnail, copySelectionAsImageToClipboard } from '@/lib/canvas/exportUtils'
+import { textToImageDataUrl } from '@/lib/canvas/textToImage'
 import type { WhiteboardCanvasHandle } from '@/components/whiteboard/WhiteboardCanvas'
 import type { Canvas as FabricCanvas } from 'fabric'
 import PageNavigator from '@/components/whiteboard/PageNavigator'
@@ -19,6 +20,7 @@ import CalculatorPopup from '@/components/whiteboard/CalculatorPopup'
 import JS40BCalculator from '@/components/whiteboard/JS40BCalculator'
 import InterestSymbolPanel from '@/components/whiteboard/InterestSymbolPanel'
 import PointerDiagPanel from '@/components/whiteboard/PointerDiagPanel'
+import PastePreviewPopup from '@/components/whiteboard/PastePreviewPopup'
 
 // Dynamic import for canvas (no SSR)
 const WhiteboardCanvas = dynamic(() => import('@/components/whiteboard/WhiteboardCanvas'), { ssr: false })
@@ -45,6 +47,7 @@ export default function Home() {
   const [currentBoard, setCurrentBoard] = useState<LocalBoard | null>(null)
   const [isSymbolPanelOpen, setIsSymbolPanelOpen] = useState(false)
   const [isPointerDiagOpen, setIsPointerDiagOpen] = useState(false)
+  const [pastePreviewDataUrl, setPastePreviewDataUrl] = useState<string | null>(null)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
   const { boards, refresh: refreshBoards, remove: removeBoard } = useLocalBoards()
@@ -276,6 +279,48 @@ export default function Home() {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); doSave(); return }
       if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); handleNewBoard(); return }
       if ((e.metaKey || e.ctrlKey) && e.key === 'm') { e.preventDefault(); addPage(); return }
+
+      // Ctrl+C: 선택 개체를 이미지로 클립보드에 복사 (계산기 열기 아님)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') {
+        const canvas = getCanvas()
+        if (canvas?.getActiveObject()) {
+          e.preventDefault()
+          copySelectionAsImageToClipboard(canvas).catch(() => {})
+          return
+        }
+      }
+      // Ctrl+V: 클립보드 내용(이미지 또는 텍스트)을 팝업으로 표시 → 이동·크기 조절 후 보드에 넣기
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'v') {
+        e.preventDefault()
+        navigator.clipboard.read().then((items) => {
+          let resolved = false
+          for (const item of items) {
+            if (item.types.includes('image/png')) {
+              item.getType('image/png').then((blob) => {
+                const reader = new FileReader()
+                reader.onload = () => {
+                  const dataUrl = reader.result as string
+                  if (dataUrl) setPastePreviewDataUrl(dataUrl)
+                }
+                reader.readAsDataURL(blob)
+              }).catch(() => {})
+              resolved = true
+              return
+            }
+          }
+          if (!resolved && items.some((i) => i.types.includes('text/plain'))) {
+            const textItem = items.find((i) => i.types.includes('text/plain'))
+            textItem?.getType('text/plain').then((blob) => {
+              blob.text().then((text) => {
+                const dataUrl = textToImageDataUrl(text)
+                if (dataUrl) setPastePreviewDataUrl(dataUrl)
+              })
+            }).catch(() => {})
+          }
+        }).catch(() => {})
+        return
+      }
+
       if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         if (currentIndex > 0) switchToPage(currentIndex - 1)
@@ -296,7 +341,6 @@ export default function Home() {
         case 'u': setColor('blue'); setTool('pen'); break
         case 's': setTool(useWhiteboardStore.getState().tool === 'select' ? 'pen' : 'select'); break
         case 'e': setTool('eraser'); break
-        case 'c': toggleCalculator(); break
         case 't': toggleTimelineModal(); break
         case 'k': toggleKaTeXModal(); break
       }
@@ -304,7 +348,7 @@ export default function Home() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, pages.length, zoom])
+  }, [currentIndex, pages.length, zoom, handleStrokeEnd])
 
   // visibilitychange: save immediately
   useEffect(() => {
@@ -386,6 +430,27 @@ export default function Home() {
       />
 
       {isPointerDiagOpen && <PointerDiagPanel onClose={() => setIsPointerDiagOpen(false)} />}
+      {pastePreviewDataUrl && (
+        <PastePreviewPopup
+          imageDataUrl={pastePreviewDataUrl}
+          onConfirm={async (dataUrl, left, top, width, height) => {
+            const canvas = getCanvas()
+            if (!canvas) return
+            const url = dataUrl
+            try {
+              const { FabricImage } = await import('fabric')
+              const img = await FabricImage.fromURL(url)
+              img.set({ left, top, width, height })
+              canvas.add(img)
+              canvas.requestRenderAll()
+              handleStrokeEnd()
+            } finally {
+              setPastePreviewDataUrl(null)
+            }
+          }}
+          onCancel={() => setPastePreviewDataUrl(null)}
+        />
+      )}
       <BoardNameDialog onConfirm={handleSaveWithName} />
       <CalculatorPopup />
       <JS40BCalculator />
