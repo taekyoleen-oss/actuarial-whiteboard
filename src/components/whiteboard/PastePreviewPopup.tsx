@@ -3,23 +3,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 
-const PREVIEW_W = 700
-const PREVIEW_H = 500
-const MIN_SIZE = 60
-const INITIAL_XY = 40
+const PREVIEW_W = 800
+const PREVIEW_H = 560
+const MIN_SIZE = 80
+const INITIAL_XY = 24
+
+export interface PastePreviewResult {
+  dataUrl: string
+  left: number
+  top: number
+  width: number
+  height: number
+  naturalWidth: number
+  naturalHeight: number
+}
 
 interface PastePreviewPopupProps {
   imageDataUrl: string
-  onConfirm: (dataUrl: string, left: number, top: number, width: number, height: number) => void
+  onConfirm: (result: PastePreviewResult) => void
   onCancel: () => void
 }
 
 export default function PastePreviewPopup({ imageDataUrl, onConfirm, onCancel }: PastePreviewPopupProps) {
   const [pos, setPos] = useState({ x: INITIAL_XY, y: INITIAL_XY })
   const [size, setSize] = useState({ w: 300, h: 200 })
+  const [natural, setNatural] = useState({ w: 300, h: 200 })
   const [ready, setReady] = useState(false)
   const dragStart = useRef<{ x: number; y: number; startLeft: number; startTop: number } | null>(null)
   const resizeStart = useRef<{ x: number; y: number; startW: number; startH: number } | null>(null)
+  const posRef = useRef(pos)
+  const sizeRef = useRef(size)
+  posRef.current = pos
+  sizeRef.current = size
 
   const imgRef = useRef<HTMLImageElement>(null)
 
@@ -29,6 +44,7 @@ export default function PastePreviewPopup({ imageDataUrl, onConfirm, onCancel }:
     img.onload = () => {
       const nw = img.naturalWidth
       const nh = img.naturalHeight
+      setNatural({ w: nw, h: nh })
       const maxW = PREVIEW_W - INITIAL_XY * 2
       const maxH = PREVIEW_H - INITIAL_XY * 2
       let w = nw
@@ -38,31 +54,34 @@ export default function PastePreviewPopup({ imageDataUrl, onConfirm, onCancel }:
         w = Math.round(w * r)
         h = Math.round(h * r)
       }
-      setSize({ w: Math.max(MIN_SIZE, w), h: Math.max(MIN_SIZE, h) })
+      const finalW = Math.max(MIN_SIZE, w)
+      const finalH = Math.max(MIN_SIZE, h)
+      setSize({ w: finalW, h: finalH })
+      sizeRef.current = { w: finalW, h: finalH }
       setReady(true)
     }
   }, [imageDataUrl])
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (dragStart.current) {
-        const dx = e.clientX - dragStart.current.x
-        const dy = e.clientY - dragStart.current.y
-        setPos({
-          x: Math.max(0, Math.min(PREVIEW_W - size.w, dragStart.current.startLeft + dx)),
-          y: Math.max(0, Math.min(PREVIEW_H - size.h, dragStart.current.startTop + dy)),
-        })
-      } else if (resizeStart.current) {
-        const dx = e.clientX - resizeStart.current.x
-        const dy = e.clientY - resizeStart.current.y
-        setSize((s) => ({
-          w: Math.max(MIN_SIZE, Math.min(PREVIEW_W - pos.x, resizeStart.current!.startW + dx)),
-          h: Math.max(MIN_SIZE, Math.min(PREVIEW_H - pos.y, resizeStart.current!.startH + dy)),
-        }))
-      }
-    },
-    [size.w, size.h, pos.x, pos.y]
-  )
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (dragStart.current) {
+      const dx = e.clientX - dragStart.current.x
+      const dy = e.clientY - dragStart.current.y
+      const cur = posRef.current
+      const sz = sizeRef.current
+      setPos({
+        x: Math.max(0, Math.min(PREVIEW_W - sz.w, dragStart.current.startLeft + dx)),
+        y: Math.max(0, Math.min(PREVIEW_H - sz.h, dragStart.current.startTop + dy)),
+      })
+    } else if (resizeStart.current) {
+      const dx = e.clientX - resizeStart.current.x
+      const dy = e.clientY - resizeStart.current.y
+      const cur = posRef.current
+      setSize({
+        w: Math.max(MIN_SIZE, Math.min(PREVIEW_W - cur.x, resizeStart.current.startW + dx)),
+        h: Math.max(MIN_SIZE, Math.min(PREVIEW_H - cur.y, resizeStart.current.startH + dy)),
+      })
+    }
+  }, [])
 
   const handleMouseUp = useCallback(() => {
     dragStart.current = null
@@ -95,7 +114,15 @@ export default function PastePreviewPopup({ imageDataUrl, onConfirm, onCancel }:
   }
 
   const handleConfirm = () => {
-    onConfirm(imageDataUrl, pos.x, pos.y, size.w, size.h)
+    onConfirm({
+      dataUrl: imageDataUrl,
+      left: pos.x,
+      top: pos.y,
+      width: size.w,
+      height: size.h,
+      naturalWidth: natural.w,
+      naturalHeight: natural.h,
+    })
   }
 
   return (
@@ -112,12 +139,9 @@ export default function PastePreviewPopup({ imageDataUrl, onConfirm, onCancel }:
             </Button>
           </div>
         </div>
-        <div
-          className="flex-1 overflow-hidden flex items-center justify-center p-4"
-          style={{ minHeight: PREVIEW_H }}
-        >
+        <div className="flex-1 overflow-auto flex items-start justify-center p-4 min-h-0">
           <div
-            className="relative bg-gray-100 rounded-lg border-2 border-dashed border-gray-300"
+            className="relative bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex-shrink-0"
             style={{ width: PREVIEW_W, height: PREVIEW_H }}
           >
             <img
@@ -142,14 +166,17 @@ export default function PastePreviewPopup({ imageDataUrl, onConfirm, onCancel }:
             {ready && (
               <div
                 data-resize-handle
-                className="absolute w-4 h-4 bg-[#1E2D5E] rounded cursor-se-resize border-2 border-white shadow"
+                className="absolute w-8 h-8 bg-[#1E2D5E] rounded cursor-se-resize border-2 border-white shadow flex items-center justify-center"
                 style={{
-                  left: pos.x + size.w - 8,
-                  top: pos.y + size.h - 8,
+                  left: pos.x + size.w - 16,
+                  top: pos.y + size.h - 16,
                 }}
                 onMouseDown={onResizeMouseDown}
                 aria-label="크기 조절"
-              />
+                title="드래그하여 크기 조절"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </div>
             )}
           </div>
         </div>

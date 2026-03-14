@@ -433,14 +433,22 @@ export default function Home() {
       {pastePreviewDataUrl && (
         <PastePreviewPopup
           imageDataUrl={pastePreviewDataUrl}
-          onConfirm={async (dataUrl, left, top, width, height) => {
+          onConfirm={async (result) => {
             const canvas = getCanvas()
             if (!canvas) return
-            const url = dataUrl
             try {
               const { FabricImage } = await import('fabric')
-              const img = await FabricImage.fromURL(url)
-              img.set({ left, top, width, height })
+              const img = await FabricImage.fromURL(result.dataUrl)
+              const nw = result.naturalWidth || 1
+              const nh = result.naturalHeight || 1
+              img.set({
+                left: result.left,
+                top: result.top,
+                scaleX: result.width / nw,
+                scaleY: result.height / nh,
+                originX: 'left',
+                originY: 'top',
+              })
               canvas.add(img)
               canvas.requestRenderAll()
               handleStrokeEnd()
